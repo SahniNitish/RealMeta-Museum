@@ -6,7 +6,8 @@ import adminRouter from './routes/admin';
 import publicRouter from './routes/public';
 import { connectToDatabase } from './utils/db';
 
-dotenv.config();
+// Ensure .env overrides any machine/user env so the latest keys are used
+dotenv.config({ override: true });
 
 const app = express();
 

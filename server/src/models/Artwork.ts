@@ -6,8 +6,18 @@ export interface ArtworkDocument extends Document {
   year?: string;
   style?: string;
   description?: string;
+  descriptions?: {
+    en?: string;
+    fr?: string;
+    es?: string;
+  };
   imageUrl?: string;
   audioUrl?: string;
+  audioUrls?: {
+    en?: string;
+    fr?: string;
+    es?: string;
+  };
   sources?: { provider: string; url: string }[];
   createdAt: Date;
   updatedAt: Date;
@@ -20,8 +30,18 @@ const ArtworkSchema = new Schema<ArtworkDocument>(
     year: { type: String },
     style: { type: String },
     description: { type: String },
+    descriptions: {
+      en: { type: String },
+      fr: { type: String },
+      es: { type: String },
+    },
     imageUrl: { type: String },
     audioUrl: { type: String },
+    audioUrls: {
+      en: { type: String },
+      fr: { type: String },
+      es: { type: String },
+    },
     sources: [
       {
         provider: String,

@@ -1,4 +1,4 @@
- {
+{
   "name": "server",
   "version": "1.0.0",
   "description": "",
@@ -23,12 +23,19 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "@google-cloud/vision": "^5.3.3",
+    "@huggingface/inference": "^4.7.1",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-node": "^4.22.0",
+    "@tensorflow/tfjs-node-gpu": "^4.22.0",
     "axios": "^1.11.0",
+    "canvas": "^3.2.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "mongoose": "^8.18.0",
     "multer": "^2.0.2",
-    "openai": "^5.15.0"
+    "openai": "^5.15.0",
+    "sharp": "^0.34.3"
   }
 }
