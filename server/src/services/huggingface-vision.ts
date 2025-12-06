@@ -12,9 +12,12 @@ export async function recognizeWithHuggingFace(imagePath: string): Promise<Visio
     // Read image file
     const imageBuffer = fs.readFileSync(imagePath);
     
+    // Convert buffer to Blob for Hugging Face API
+    const imageBlob = new Blob([imageBuffer], { type: 'image/jpeg' });
+    
     // Use BLIP-2 for image captioning (great for artwork and objects)
     const captionResult = await hf.imageToText({
-      data: imageBuffer,
+      data: imageBlob,
       model: 'Salesforce/blip-image-captioning-large'
     });
     
@@ -22,7 +25,7 @@ export async function recognizeWithHuggingFace(imagePath: string): Promise<Visio
     let objectDetails = '';
     try {
       const objectResult = await hf.objectDetection({
-        data: imageBuffer,
+        inputs: imageBlob,
         model: 'facebook/detr-resnet-50'
       });
       
@@ -73,6 +76,9 @@ export async function recognizeWithHuggingFace(imagePath: string): Promise<Visio
     return {
       title: title,
       description: description,
+      educationalNotes: 'This analysis was generated using automated computer vision and image captioning models. For more detailed art historical information, consult with museum staff or specialized art resources.',
+      relatedWorks: 'Similar artworks and objects can be found in museum collections worldwide. Consult museum catalogs for related pieces.',
+      museumLinks: 'Visit your local museum, art gallery, or explore online collections from major institutions like the Metropolitan Museum, Louvre, or British Museum.',
       confidence: 0.85 // Hugging Face models are generally quite reliable
     };
     
@@ -83,6 +89,9 @@ export async function recognizeWithHuggingFace(imagePath: string): Promise<Visio
     return {
       title: 'Unknown',
       description: 'Unable to analyze image with Hugging Face. Please check your API key or try again.',
+      educationalNotes: 'Image analysis failed. Please try again or use alternative vision services.',
+      relatedWorks: 'Unable to provide recommendations at this time.',
+      museumLinks: 'Visit your local museum or contact museum staff for assistance.',
       confidence: 0.0
     };
   }

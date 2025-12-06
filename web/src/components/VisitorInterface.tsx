@@ -38,8 +38,23 @@ const VisitorInterface: React.FC = () => {
 
   const fetchArtworks = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/artworks`)
-      setArtworks(response.data)
+      // Get all museums first
+      const museumsResponse = await axios.get(`${API_BASE}/museums`)
+      const museums = museumsResponse.data.museums || []
+      
+      // Fetch artworks from all museums
+      const allArtworks: Artwork[] = []
+      for (const museum of museums) {
+        try {
+          const artworksResponse = await axios.get(`${API_BASE}/museums/${museum._id}/artworks`)
+          const museumArtworks = artworksResponse.data.artworks || []
+          allArtworks.push(...museumArtworks)
+        } catch (err) {
+          console.warn(`Failed to fetch artworks for museum ${museum.name}:`, err)
+        }
+      }
+      
+      setArtworks(allArtworks)
     } catch (error) {
       console.error('Failed to fetch artworks:', error)
     } finally {
@@ -114,14 +129,14 @@ const VisitorInterface: React.FC = () => {
 
       {/* Artwork Collection */}
       <div className="artwork-collection">
-        <h2>🎨 Museum Collection ({artworks.length} artworks)</h2>
+        <h2>🎨 All Museum Collections ({artworks.length} artworks)</h2>
         
         {artworks.length === 0 ? (
           <div className="empty-collection">
             <h3>📭 No artworks yet</h3>
-            <p>The museum collection is empty. Admin can add artworks using the admin dashboard.</p>
-            <Link to="/admin" className="admin-link">
-              Go to Admin Dashboard →
+            <p>No museums have uploaded artworks yet. Create a museum and add artworks using the admin dashboard.</p>
+            <Link to="/admin/museums" className="admin-link">
+              Go to Museum Management →
             </Link>
           </div>
         ) : (

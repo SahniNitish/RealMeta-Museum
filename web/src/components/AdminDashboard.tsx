@@ -22,6 +22,12 @@ interface Artwork {
   audioFilesGenerated: string[]
 }
 
+interface Museum {
+  _id: string;
+  name: string;
+  location: string;
+}
+
 const AdminDashboard: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -33,9 +39,32 @@ const AdminDashboard: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [showCamera, setShowCamera] = useState(false)
+  const [cameraReady, setCameraReady] = useState(false)
+
+  // Museum selection
+  const [museums, setMuseums] = useState<Museum[]>([])
+  const [selectedMuseum, setSelectedMuseum] = useState<string>('')
+  const [loadingMuseums, setLoadingMuseums] = useState(true)
 
   const API_HOST = `http://${window.location.hostname}:4000`
   const API_BASE = `${API_HOST}/api`
+
+  // Fetch museums on component mount
+  useEffect(() => {
+    fetchMuseums()
+  }, [])
+
+  const fetchMuseums = async () => {
+    try {
+      setLoadingMuseums(true)
+      const response = await axios.get(`${API_BASE}/museums`)
+      setMuseums(response.data.museums || [])
+    } catch (error) {
+      console.error('Failed to fetch museums:', error)
+    } finally {
+      setLoadingMuseums(false)
+    }
+  }
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -48,15 +77,77 @@ const AdminDashboard: React.FC = () => {
 
   const handleStartCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      console.log('🎥 Starting camera...')
+
+      // Show camera UI immediately
+      setShowCamera(true)
+      setCameraReady(false)
+
+      // Try with environment camera first, fallback to any camera
+      let stream: MediaStream | null = null
+
+      try {
+        console.log('📷 Requesting camera with environment mode...')
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+          audio: false
+        })
+        console.log('✅ Got environment camera stream')
+      } catch (envError) {
+        console.log('⚠️ Environment camera not available, using default camera...')
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        })
+        console.log('✅ Got default camera stream')
+      }
+
+      if (!stream) {
+        throw new Error('Failed to get camera stream')
+      }
+
+      console.log('📺 Setting up video element...')
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        await videoRef.current.play()
+        console.log('✅ Stream attached to video element')
+
+        // Set up event handler BEFORE playing
+        videoRef.current.onloadedmetadata = () => {
+          console.log('📊 Video metadata loaded')
+          setCameraReady(true)
+          console.log('✅ Camera ready:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
+        }
+
+        // Add a safety timeout in case loadedmetadata never fires
+        setTimeout(() => {
+          if (!videoRef.current) return
+          const width = videoRef.current.videoWidth
+          const height = videoRef.current.videoHeight
+          console.log('⏰ Timeout check - dimensions:', width, 'x', height)
+          if (width > 0 && height > 0) {
+            console.log('⏰ Forcing camera ready')
+            setCameraReady(true)
+          }
+        }, 2000)
+
+        try {
+          await videoRef.current.play()
+          console.log('▶️ Video playing')
+        } catch (playError) {
+          console.error('❌ Video play error:', playError)
+          // Even if play fails, keep stream active
+        }
       }
+
       streamRef.current = stream
-      setShowCamera(true)
+      console.log('✅ Camera setup complete')
+
     } catch (err) {
-      alert('Camera permission denied or unavailable')
+      console.error('❌ Camera error:', err)
+      setShowCamera(false)
+      setCameraReady(false)
+      alert('Camera permission denied or unavailable. Please check your browser settings and ensure you are using HTTPS.')
     }
   }
 
@@ -66,21 +157,48 @@ const AdminDashboard: React.FC = () => {
       streamRef.current = null
     }
     setShowCamera(false)
+    setCameraReady(false)
   }
 
   const handleCapturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return
+    if (!videoRef.current || !canvasRef.current) {
+      alert('Camera not initialized')
+      return
+    }
+
     const video = videoRef.current
     const canvas = canvasRef.current
     const width = video.videoWidth
     const height = video.videoHeight
+
+    // Validate video dimensions
+    if (width === 0 || height === 0) {
+      alert('Camera not ready yet. Please wait a moment and try again.')
+      console.error('Invalid video dimensions:', width, 'x', height)
+      return
+    }
+
+    console.log('Capturing photo:', width, 'x', height)
+
     canvas.width = width
     canvas.height = height
     const ctx = canvas.getContext('2d')
-    if (!ctx) return
+
+    if (!ctx) {
+      alert('Failed to get canvas context')
+      return
+    }
+
     ctx.drawImage(video, 0, 0, width, height)
+
     canvas.toBlob((blob) => {
-      if (!blob) return
+      if (!blob) {
+        console.error('Failed to create image blob')
+        alert('Failed to capture photo. Please try again.')
+        return
+      }
+
+      console.log('Photo captured successfully, size:', blob.size, 'bytes')
       const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' })
       setSelectedFile(file)
       setUploadResult(null)
@@ -92,20 +210,36 @@ const AdminDashboard: React.FC = () => {
   const handleUpload = async () => {
     if (!selectedFile) return
 
+    if (!selectedMuseum) {
+      alert('Please select a museum first')
+      return
+    }
+
     setUploading(true)
     const formData = new FormData()
     formData.append('image', selectedFile)
+    formData.append('museumId', selectedMuseum)
 
     try {
+      console.log('📤 Uploading file:', selectedFile.name, 'Size:', selectedFile.size, 'bytes', 'Museum:', selectedMuseum)
+
       const response = await axios.post(`${API_BASE}/admin/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
-      
+
       setUploadResult(response.data)
-      console.log('Upload result:', response.data)
-    } catch (error) {
-      console.error('Upload failed:', error)
-      alert('Upload failed. Please try again.')
+      console.log('✅ Upload successful:', response.data)
+    } catch (error: any) {
+      console.error('❌ Upload failed:', error)
+      console.error('Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      })
+
+      const errorMsg = error.response?.data?.error || error.message || 'Upload failed'
+      alert(`Upload failed: ${errorMsg}\n\nCheck console for details.`)
     } finally {
       setUploading(false)
     }
@@ -165,9 +299,47 @@ const AdminDashboard: React.FC = () => {
         <p>Upload artwork images and manage multilingual content</p>
       </div>
 
-      {/* Step 1: Upload Image */}
+      {/* Step 1: Select Museum & Upload Image */}
       <div className="admin-section">
-        <h2>📸 Step 1: Upload Artwork Image</h2>
+        <h2>📸 Step 1: Select Museum & Upload Artwork</h2>
+
+        {/* Museum Selector */}
+        <div className="upload-area" style={{ marginBottom: '1.5rem' }}>
+          <label htmlFor="museum-select" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#2c3e50' }}>
+            🏛️ Select Museum *
+          </label>
+          {loadingMuseums ? (
+            <p>Loading museums...</p>
+          ) : museums.length === 0 ? (
+            <div style={{ padding: '1rem', background: '#fff3cd', borderRadius: '8px', border: '1px solid #ffc107' }}>
+              <p style={{ margin: 0 }}>⚠️ No museums found. Please <a href="/admin/museums" style={{ color: '#667eea', fontWeight: 'bold' }}>create a museum first</a>.</p>
+            </div>
+          ) : (
+            <select
+              id="museum-select"
+              value={selectedMuseum}
+              onChange={(e) => setSelectedMuseum(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                border: '2px solid #e0e0e0',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                backgroundColor: 'white',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">-- Select a museum --</option>
+              {museums.map(museum => (
+                <option key={museum._id} value={museum._id}>
+                  {museum.name} ({museum.location})
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* File Upload */}
         <div className="upload-area">
           <input
             ref={fileInputRef}
@@ -175,16 +347,42 @@ const AdminDashboard: React.FC = () => {
             accept="image/*"
             onChange={handleFileSelect}
             className="file-input"
+            disabled={!selectedMuseum}
           />
           <div style={{ marginTop: '8px' }}>
-            <button onClick={handleStartCamera} className="upload-btn" type="button">📷 Use Camera</button>
+            <button
+              onClick={handleStartCamera}
+              className="upload-btn"
+              type="button"
+              disabled={!selectedMuseum}
+              style={{ opacity: selectedMuseum ? 1 : 0.5 }}
+            >
+              📷 Use Camera
+            </button>
           </div>
 
           {showCamera && (
-            <div style={{ marginTop: '12px' }}>
-              <video ref={videoRef} style={{ width: '100%', borderRadius: 8 }} muted playsInline />
+            <div style={{ marginTop: '12px', border: '2px solid #3498db', borderRadius: 8, padding: '8px', background: '#000' }}>
+              <video
+                ref={videoRef}
+                style={{ width: '100%', borderRadius: 8, display: 'block', minHeight: '200px', background: '#000' }}
+                autoPlay
+                muted
+                playsInline
+              />
+              {!cameraReady && (
+                <p style={{ color: '#f39c12', marginTop: '8px' }}>⏳ Initializing camera...</p>
+              )}
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button onClick={handleCapturePhoto} className="upload-btn" type="button">📸 Capture</button>
+                <button
+                  onClick={handleCapturePhoto}
+                  className="upload-btn"
+                  type="button"
+                  disabled={!cameraReady}
+                  style={{ opacity: cameraReady ? 1 : 0.5 }}
+                >
+                  📸 {cameraReady ? 'Capture' : 'Wait...'}
+                </button>
                 <button onClick={stopCamera} className="upload-btn" type="button" style={{ background: '#7f8c8d' }}>✖ Close</button>
               </div>
               <canvas ref={canvasRef} style={{ display: 'none' }} />
@@ -202,13 +400,16 @@ const AdminDashboard: React.FC = () => {
             </div>
           )}
           
-          <button 
+          <button
             onClick={handleUpload}
-            disabled={!selectedFile || uploading}
+            disabled={!selectedFile || !selectedMuseum || uploading}
             className="upload-btn"
           >
             {uploading ? '🔄 Processing...' : '🚀 Upload & Analyze'}
           </button>
+          {selectedFile && !selectedMuseum && (
+            <p style={{ color: '#e74c3c', marginTop: '0.5rem' }}>⚠️ Please select a museum before uploading</p>
+          )}
         </div>
       </div>
 

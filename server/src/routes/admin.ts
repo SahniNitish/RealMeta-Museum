@@ -4,11 +4,12 @@ import path from 'path';
 import fs from 'fs';
 import { connectToDatabase } from '../utils/db';
 import { Artwork } from '../models/Artwork';
+import { Museum } from '../models/Museum';
 import { recognizeArtworkFromImage } from '../services/vision';
 import { fetchFromWikipedia } from '../services/resources';
 import { synthesizeWithElevenLabs, generateMultiLanguageAudio } from '../services/tts';
 import { translateDescription } from '../services/translation';
-import fs from 'fs';
+import { generateImageEmbedding } from '../services/clip';
 
 const router = Router();
 
@@ -38,21 +39,45 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
   try {
     await connectToDatabase();
     const file = req.file;
-    
-    console.log('Upload debug:', { 
-      hasFile: !!file, 
+    const { museumId } = req.body;
+
+    console.log('Upload debug:', {
+      hasFile: !!file,
       filename: file?.filename,
       originalname: file?.originalname,
+      museumId,
       contentType: req.headers['content-type']
     });
-    
+
     if (!file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    if (!museumId) {
+      return res.status(400).json({ error: 'Museum ID is required' });
+    }
+
+    // Verify museum exists
+    const museum = await Museum.findById(museumId);
+    if (!museum) {
+      return res.status(404).json({ error: 'Museum not found' });
+    }
+
     const imageUrl = `/uploads/${file.filename}`;
-    // Try AI recognition
     const absPath = path.join(__dirname, '..', '..', 'uploads', file.filename);
+
+    // Generate CLIP embedding for image matching
+    console.log('🎨 Generating CLIP embedding...');
+    let imageEmbedding: number[] = [];
+    try {
+      imageEmbedding = await generateImageEmbedding(absPath);
+      console.log('✅ CLIP embedding generated successfully');
+    } catch (embError) {
+      console.error('⚠️ CLIP embedding generation failed:', embError);
+      // Continue without embedding - visitor matching won't work but admin can still upload
+    }
+
+    // Try AI recognition
     const ai = await recognizeArtworkFromImage(absPath);
     let wiki = null;
     if (ai.title) {
@@ -65,23 +90,25 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
     // Auto-translate description if we have one
     let descriptions = { en: baseDescription };
     let audioUrls = {};
-    
+
     if (baseDescription && baseDescription !== 'Set OPENAI_API_KEY to enable recognition.') {
       console.log('🌍 Auto-translating initial description...');
       try {
         descriptions = await translateDescription(baseDescription, 'en');
-        console.log('🎵 Generating initial audio files...');
-        audioUrls = await generateMultiLanguageAudio(descriptions);
+        console.log('✅ Translations completed');
       } catch (error) {
-        console.log('⚠️ Translation/audio generation failed during upload:', error);
-        // Fallback: at least generate English audio so UI has narration
-        try {
-          console.log('🎵 Fallback: generating English audio only...');
-          const enOnly = { en: baseDescription } as any;
-          audioUrls = await generateMultiLanguageAudio(enOnly);
-        } catch (ttsError) {
-          console.log('❌ Fallback English audio failed:', ttsError);
-        }
+        console.log('⚠️ Translation failed, using English only:', error);
+        descriptions = { en: baseDescription, fr: baseDescription, es: baseDescription } as any;
+      }
+
+      // Try audio generation but don't fail the upload if it doesn't work
+      console.log('🎵 Attempting audio generation...');
+      try {
+        audioUrls = await generateMultiLanguageAudio(descriptions);
+        console.log('✅ Audio files generated');
+      } catch (ttsError) {
+        console.log('⚠️ Audio generation failed (upload will continue without audio):', ttsError);
+        // Continue without audio - upload will still succeed
       }
     }
 
@@ -91,33 +118,38 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
       year: ai.year,
       style: ai.style,
       description: baseDescription,
+      museumId: museum._id,
+      imageEmbedding: imageEmbedding.length > 0 ? imageEmbedding : undefined,
       descriptions,
       imageUrl,
       sources: wiki?.sources,
       audioUrls: Object.keys(audioUrls).length > 0 ? audioUrls : undefined
     });
     
-    res.json({ 
-      id: doc._id, 
-      imageUrl, 
-      ai, 
+    res.json({
+      id: doc._id,
+      imageUrl,
+      ai,
       wiki,
       autoTranslated: Object.keys(descriptions).length > 1,
       audioGenerated: Object.keys(audioUrls),
       descriptions: {
-        english: descriptions.en,
-        french: descriptions.fr,
-        spanish: descriptions.es
+        english: (descriptions as any).en || baseDescription,
+        french: (descriptions as any).fr || (descriptions as any).en || baseDescription,
+        spanish: (descriptions as any).es || (descriptions as any).en || baseDescription
       },
       audioUrls: {
-        english: audioUrls.en,
-        french: audioUrls.fr,
-        spanish: audioUrls.es
+        english: (audioUrls as any).en || undefined,
+        french: (audioUrls as any).fr || undefined,
+        spanish: (audioUrls as any).es || undefined
       }
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ error: message });
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error('❌ Upload route error:', message);
+    console.error('Stack trace:', stack);
+    res.status(500).json({ error: message, details: stack?.split('\n').slice(0, 3).join('\n') });
   }
 });
 
@@ -152,12 +184,12 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
 
     const updated = await Artwork.findByIdAndUpdate(
       id,
-      { 
-        title, 
-        author, 
-        year, 
-        style, 
-        description: descriptions[sourceLanguage], // Use translated version as main description
+      {
+        title,
+        author,
+        year,
+        style,
+        description: descriptions[sourceLanguage as keyof typeof descriptions], // Use translated version as main description
         descriptions, // Store all translations
         sources,
         audioUrls // Store all audio files

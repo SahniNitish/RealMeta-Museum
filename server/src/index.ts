@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import adminRouter from './routes/admin';
 import publicRouter from './routes/public';
+import museumsRouter from './routes/museums';
+import visitorRouter from './routes/visitor';
 import { connectToDatabase } from './utils/db';
 
 // Ensure .env overrides any machine/user env so the latest keys are used
@@ -15,6 +17,8 @@ app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 app.use('/api/admin', adminRouter);
+app.use('/api/museums', museumsRouter);
+app.use('/api/visit', visitorRouter);
 app.use('/api', publicRouter);
 
 app.get('/health', (_req: Request, res: Response) => {

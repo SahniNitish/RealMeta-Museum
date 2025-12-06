@@ -2,6 +2,9 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import AdminDashboard from './components/AdminDashboard'
 import VisitorInterface from './components/VisitorInterface'
 import ArtworkDetail from './components/ArtworkDetail'
+import MuseumManagement from './components/MuseumManagement'
+import VisitorScan from './components/VisitorScan'
+import BrowseCollection from './components/BrowseCollection'
 import './App.css'
 
 function App() {
@@ -14,8 +17,9 @@ function App() {
               🏛️ Museum AI
             </Link>
             <div className="nav-menu">
-              <Link to="/" className="nav-link">Visitor</Link>
-              <Link to="/admin" className="nav-link">Admin</Link>
+              <Link to="/" className="nav-link">Home</Link>
+              <Link to="/admin/museums" className="nav-link">Museums</Link>
+              <Link to="/admin" className="nav-link">Upload Art</Link>
             </div>
           </div>
         </nav>
@@ -24,7 +28,10 @@ function App() {
           <Routes>
             <Route path="/" element={<VisitorInterface />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/museums" element={<MuseumManagement />} />
             <Route path="/artwork/:id" element={<ArtworkDetail />} />
+            <Route path="/visit/:qrCode" element={<VisitorScan />} />
+            <Route path="/visit/:qrCode/browse" element={<BrowseCollection />} />
           </Routes>
         </main>
 

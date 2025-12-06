@@ -44,7 +44,7 @@ export async function fetchFromWikipedia(query: string): Promise<ResourceInfo | 
 
     return {
       title: page.title,
-      description,
+      description: description || 'No description available',
       sources: fullurl ? [{ provider: 'wikipedia', url: fullurl }] : [],
     };
   } catch {
