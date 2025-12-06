@@ -10,6 +10,9 @@ interface ArtworkDetail {
   style: string
   imageUrl: string
   description: string
+  educationalNotes?: string
+  relatedWorks?: string
+  museumLinks?: string
   descriptions?: {
     en: string
     fr: string
@@ -64,8 +67,35 @@ const ArtworkDetail: React.FC = () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await axios.get(`${API_BASE}/artworks/${id}?lang=${currentLang}`)
-      setArtwork(response.data)
+      const response = await axios.get(`${API_BASE}/visit/artwork/${id}?language=${currentLang}`)
+      
+      // Transform the response to match the expected interface
+      const artworkData = response.data.artwork
+      const transformedArtwork: ArtworkDetail = {
+        _id: artworkData.id,
+        title: artworkData.title,
+        author: artworkData.author,
+        year: artworkData.year,
+        style: artworkData.style,
+        imageUrl: artworkData.imageUrl,
+        description: artworkData.description,
+        educationalNotes: artworkData.educationalNotes,
+        relatedWorks: artworkData.relatedWorks,
+        museumLinks: artworkData.museumLinks,
+        sources: artworkData.sources || [],
+        currentLanguage: currentLang,
+        localizedDescription: artworkData.description,
+        localizedAudioUrl: artworkData.audioUrl,
+        availableLanguages: {
+          en: true,  // Assume all artworks have English
+          fr: true,  // Assume all artworks have French  
+          es: true   // Assume all artworks have Spanish
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      
+      setArtwork(transformedArtwork)
     } catch (error: any) {
       console.error('Failed to fetch artwork:', error)
       setError(error.response?.data?.error || 'Failed to load artwork')
@@ -209,6 +239,36 @@ const ArtworkDetail: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Educational Notes */}
+          {artwork.educationalNotes && (
+            <div className="educational-notes">
+              <h3>🎓 Educational Insights</h3>
+              <div className="educational-content">
+                <p>{artwork.educationalNotes}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Related Works */}
+          {artwork.relatedWorks && (
+            <div className="related-works">
+              <h3>🎨 Related Works</h3>
+              <div className="related-content">
+                <p>{artwork.relatedWorks}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Museum Links */}
+          {artwork.museumLinks && (
+            <div className="museum-links">
+              <h3>🏛️ Learn More</h3>
+              <div className="museum-content">
+                <p>{artwork.museumLinks}</p>
+              </div>
+            </div>
+          )}
 
           {/* Sources */}
           {artwork.sources && artwork.sources.length > 0 && (

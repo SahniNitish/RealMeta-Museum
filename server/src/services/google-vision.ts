@@ -1,4 +1,4 @@
-import vision from '@google-cloud/vision';
+import { ImageAnnotatorClient } from '@google-cloud/vision';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -14,9 +14,9 @@ export interface GoogleVisionResult {
 }
 
 // Initialize Google Vision client
-let visionClient: vision.ImageAnnotatorClient | null = null;
+let visionClient: ImageAnnotatorClient | null = null;
 
-function initializeVisionClient(): vision.ImageAnnotatorClient {
+function initializeVisionClient(): ImageAnnotatorClient {
   if (!visionClient) {
     // Try different authentication methods
     const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
@@ -24,17 +24,17 @@ function initializeVisionClient(): vision.ImageAnnotatorClient {
     
     if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
       console.log('🔑 Using Google Service Account authentication');
-      visionClient = new vision.ImageAnnotatorClient({
+      visionClient = new ImageAnnotatorClient({
         keyFilename: serviceAccountPath
       });
     } else if (apiKey) {
       console.log('🔑 Using Google Vision API Key authentication');
-      visionClient = new vision.ImageAnnotatorClient({
+      visionClient = new ImageAnnotatorClient({
         apiKey: apiKey
       });
     } else {
       console.log('🔑 Using Google Application Default Credentials');
-      visionClient = new vision.ImageAnnotatorClient();
+      visionClient = new ImageAnnotatorClient();
     }
   }
   return visionClient;
