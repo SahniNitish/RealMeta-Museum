@@ -1,6 +1,7 @@
 import { pipeline, env } from '@xenova/transformers';
 import fs from 'fs';
 import path from 'path';
+import Logger from '../utils/logger';
 
 // Configure transformers.js to use local cache
 env.cacheDir = path.join(__dirname, '..', '..', '.cache');
@@ -13,9 +14,9 @@ let clipModel: any = null;
  */
 async function loadCLIPModel() {
   if (!clipModel) {
-    console.log('📦 Loading CLIP model (this may take a moment on first run)...');
+    Logger.info('Loading CLIP model (this may take a moment on first run)...');
     clipModel = await pipeline('image-feature-extraction', 'Xenova/clip-vit-base-patch32');
-    console.log('✅ CLIP model loaded successfully');
+    Logger.info('CLIP model loaded successfully');
   }
   return clipModel;
 }
@@ -27,7 +28,7 @@ async function loadCLIPModel() {
  */
 export async function generateImageEmbedding(imagePath: string): Promise<number[]> {
   try {
-    console.log(`🎨 Generating CLIP embedding for: ${imagePath}`);
+    Logger.info(`Generating CLIP embedding for: ${imagePath}`);
 
     // Verify file exists
     if (!fs.existsSync(imagePath)) {
@@ -43,11 +44,11 @@ export async function generateImageEmbedding(imagePath: string): Promise<number[
     // Extract embedding data (convert to plain array)
     const embedding: number[] = Array.from(result.data);
 
-    console.log(`✅ Generated embedding with ${embedding.length} dimensions`);
+    Logger.info(`Generated embedding with ${embedding.length} dimensions`);
 
     return embedding;
   } catch (error) {
-    console.error('❌ Error generating CLIP embedding:', error);
+    Logger.error(`Error generating CLIP embedding: ${error}`);
     throw error;
   }
 }

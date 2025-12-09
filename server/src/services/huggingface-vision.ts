@@ -1,26 +1,27 @@
 import { HfInference } from '@huggingface/inference';
 import * as fs from 'fs';
 import { VisionResult } from './vision.js';
+import Logger from '../utils/logger';
 
 // Initialize Hugging Face client
 const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
 
 export async function recognizeWithHuggingFace(imagePath: string): Promise<VisionResult> {
   try {
-    console.log(`🤖 Analyzing image with Hugging Face: ${imagePath}`);
-    
+    Logger.info(`🤖 Analyzing image with Hugging Face: ${imagePath}`);
+
     // Read image file
     const imageBuffer = fs.readFileSync(imagePath);
-    
+
     // Convert buffer to Blob for Hugging Face API
     const imageBlob = new Blob([imageBuffer], { type: 'image/jpeg' });
-    
+
     // Use BLIP-2 for image captioning (great for artwork and objects)
     const captionResult = await hf.imageToText({
       data: imageBlob,
       model: 'Salesforce/blip-image-captioning-large'
     });
-    
+
     // Use object detection for additional details
     let objectDetails = '';
     try {
@@ -28,7 +29,7 @@ export async function recognizeWithHuggingFace(imagePath: string): Promise<Visio
         inputs: imageBlob,
         model: 'facebook/detr-resnet-50'
       });
-      
+
       if (objectResult && objectResult.length > 0) {
         const detectedObjects = objectResult
           .filter(obj => obj.score > 0.3)
@@ -38,14 +39,14 @@ export async function recognizeWithHuggingFace(imagePath: string): Promise<Visio
         objectDetails = detectedObjects ? ` Objects detected: ${detectedObjects}.` : '';
       }
     } catch (objError) {
-      console.log('Object detection failed, continuing with caption only');
+      Logger.warn('Object detection failed, continuing with caption only');
     }
-    
+
     // Generate description from caption
     const caption = captionResult.generated_text || 'An artwork or museum piece';
     let title = 'Unknown Artwork';
     let description = caption;
-    
+
     // Try to extract title from caption
     if (caption.includes('painting')) {
       title = 'Painting';
@@ -70,9 +71,9 @@ export async function recognizeWithHuggingFace(imagePath: string): Promise<Visio
       }
       description = `${caption}${objectDetails}`;
     }
-    
-    console.log(`✅ Hugging Face analysis complete: ${title}`);
-    
+
+    Logger.info(`✅ Hugging Face analysis complete: ${title}`);
+
     return {
       title: title,
       description: description,
@@ -81,10 +82,10 @@ export async function recognizeWithHuggingFace(imagePath: string): Promise<Visio
       museumLinks: 'Visit your local museum, art gallery, or explore online collections from major institutions like the Metropolitan Museum, Louvre, or British Museum.',
       confidence: 0.85 // Hugging Face models are generally quite reliable
     };
-    
+
   } catch (error) {
-    console.error('❌ Hugging Face Vision error:', error);
-    
+    Logger.error(`❌ Hugging Face Vision error: ${error}`);
+
     // Return fallback result
     return {
       title: 'Unknown',
@@ -106,11 +107,11 @@ export async function testHuggingFaceAPI(): Promise<boolean> {
       inputs: 'Hello',
       parameters: { max_new_tokens: 1 }
     });
-    
-    console.log('✅ Hugging Face API key is working');
+
+    Logger.info('✅ Hugging Face API key is working');
     return true;
   } catch (error) {
-    console.error('❌ Hugging Face API key test failed:', error);
+    Logger.error(`❌ Hugging Face API key test failed: ${error}`);
     return false;
   }
 }

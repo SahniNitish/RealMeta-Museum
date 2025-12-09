@@ -3,6 +3,7 @@ import { Museum } from '../models/Museum';
 import { Artwork } from '../models/Artwork';
 import { connectToDatabase } from '../utils/db';
 import QRCode from 'qrcode';
+import Logger from '../utils/logger';
 
 const router = Router();
 
@@ -31,7 +32,7 @@ router.get('/', async (req: Request, res: Response) => {
       museums
     });
   } catch (error: any) {
-    console.error('❌ Error fetching museums:', error);
+    Logger.error(`Error fetching museums: ${error}`);
     res.status(500).json({ error: error.message });
   }
 });
@@ -58,7 +59,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
-    console.error('❌ Error fetching museum:', error);
+    Logger.error(`Error fetching museum: ${error}`);
     res.status(500).json({ error: error.message });
   }
 });
@@ -91,14 +92,14 @@ router.post('/', async (req: Request, res: Response) => {
       description
     });
 
-    console.log(`✅ Museum created: ${museum.name} (QR: ${museum.qrCode})`);
+    Logger.info(`Museum created: ${museum.name} (QR: ${museum.qrCode})`);
 
     res.status(201).json({
       success: true,
       museum
     });
   } catch (error: any) {
-    console.error('❌ Error creating museum:', error);
+    Logger.error(`Error creating museum: ${error}`);
     res.status(500).json({ error: error.message });
   }
 });
@@ -125,14 +126,14 @@ router.put('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Museum not found' });
     }
 
-    console.log(`✅ Museum updated: ${museum.name}`);
+    Logger.info(`Museum updated: ${museum.name}`);
 
     res.json({
       success: true,
       museum
     });
   } catch (error: any) {
-    console.error('❌ Error updating museum:', error);
+    Logger.error(`Error updating museum: ${error}`);
     res.status(500).json({ error: error.message });
   }
 });
@@ -159,14 +160,14 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     await Museum.findByIdAndDelete(req.params.id);
 
-    console.log(`✅ Museum deleted: ${museum.name}`);
+    Logger.info(`Museum deleted: ${museum.name}`);
 
     res.json({
       success: true,
       message: 'Museum deleted successfully'
     });
   } catch (error: any) {
-    console.error('❌ Error deleting museum:', error);
+    Logger.error(`Error deleting museum: ${error}`);
     res.status(500).json({ error: error.message });
   }
 });
@@ -207,7 +208,7 @@ router.get('/:id/qr', async (req: Request, res: Response) => {
       qrCodeImage: qrCodeDataUrl
     });
   } catch (error: any) {
-    console.error('❌ Error generating QR code:', error);
+    Logger.error(`Error generating QR code: ${error}`);
     res.status(500).json({ error: error.message });
   }
 });
@@ -235,7 +236,7 @@ router.get('/:id/artworks', async (req: Request, res: Response) => {
       artworks
     });
   } catch (error: any) {
-    console.error('❌ Error fetching museum artworks:', error);
+    Logger.error(`Error fetching museum artworks: ${error}`);
     res.status(500).json({ error: error.message });
   }
 });

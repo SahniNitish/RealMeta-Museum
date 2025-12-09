@@ -10,6 +10,7 @@ import { fetchFromWikipedia } from '../services/resources';
 import { synthesizeWithElevenLabs, generateMultiLanguageAudio } from '../services/tts';
 import { translateDescription } from '../services/translation';
 import { generateImageEmbedding } from '../services/clip';
+import Logger from '../utils/logger';
 
 const router = Router();
 
@@ -27,7 +28,7 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ 
+const upload = multer({
   storage,
   fileFilter: (_req, _file, cb) => {
     cb(null, true); // Accept any file
@@ -41,13 +42,13 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
     const file = req.file;
     const { museumId } = req.body;
 
-    console.log('Upload debug:', {
+    Logger.debug(`Upload debug: ${JSON.stringify({
       hasFile: !!file,
       filename: file?.filename,
       originalname: file?.originalname,
       museumId,
       contentType: req.headers['content-type']
-    });
+    })}`);
 
     if (!file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -67,13 +68,13 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
     const absPath = path.join(__dirname, '..', '..', 'uploads', file.filename);
 
     // Generate CLIP embedding for image matching
-    console.log('🎨 Generating CLIP embedding...');
+    Logger.info('Generating CLIP embedding...');
     let imageEmbedding: number[] = [];
     try {
       imageEmbedding = await generateImageEmbedding(absPath);
-      console.log('✅ CLIP embedding generated successfully');
+      Logger.info('CLIP embedding generated successfully');
     } catch (embError) {
-      console.error('⚠️ CLIP embedding generation failed:', embError);
+      Logger.warn(`CLIP embedding generation failed: ${embError}`);
       // Continue without embedding - visitor matching won't work but admin can still upload
     }
 
@@ -86,28 +87,28 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
 
     // Create initial artwork with basic info
     const baseDescription = wiki?.description || ai.description || 'Artwork uploaded to museum system.';
-    
+
     // Auto-translate description if we have one
     let descriptions = { en: baseDescription };
     let audioUrls = {};
 
     if (baseDescription && baseDescription !== 'Set OPENAI_API_KEY to enable recognition.') {
-      console.log('🌍 Auto-translating initial description...');
+      Logger.info('Auto-translating initial description...');
       try {
         descriptions = await translateDescription(baseDescription, 'en');
-        console.log('✅ Translations completed');
+        Logger.info('Translations completed');
       } catch (error) {
-        console.log('⚠️ Translation failed, using English only:', error);
+        Logger.warn(`Translation failed, using English only: ${error}`);
         descriptions = { en: baseDescription, fr: baseDescription, es: baseDescription } as any;
       }
 
       // Try audio generation but don't fail the upload if it doesn't work
-      console.log('🎵 Attempting audio generation...');
+      Logger.info('Attempting audio generation...');
       try {
         audioUrls = await generateMultiLanguageAudio(descriptions);
-        console.log('✅ Audio files generated');
+        Logger.info('Audio files generated');
       } catch (ttsError) {
-        console.log('⚠️ Audio generation failed (upload will continue without audio):', ttsError);
+        Logger.warn(`Audio generation failed (upload will continue without audio): ${ttsError}`);
         // Continue without audio - upload will still succeed
       }
     }
@@ -125,7 +126,7 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
       sources: wiki?.sources,
       audioUrls: Object.keys(audioUrls).length > 0 ? audioUrls : undefined
     });
-    
+
     res.json({
       id: doc._id,
       imageUrl,
@@ -147,8 +148,8 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     const stack = err instanceof Error ? err.stack : undefined;
-    console.error('❌ Upload route error:', message);
-    console.error('Stack trace:', stack);
+    Logger.error(`Upload route error: ${message}`);
+    Logger.error(`Stack trace: ${stack}`);
     res.status(500).json({ error: message, details: stack?.split('\n').slice(0, 3).join('\n') });
   }
 });
@@ -159,28 +160,28 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
     await connectToDatabase();
     const { id } = req.params;
     const { title, author, year, style, description, sources, sourceLanguage = 'en' } = req.body || {};
-    
+
     if (!description) {
       return res.status(400).json({ error: 'Description is required for translation and audio generation' });
     }
 
-    console.log(`🌍 Auto-translating description from ${sourceLanguage} to all languages...`);
-    
+    Logger.info(`Auto-translating description from ${sourceLanguage} to all languages...`);
+
     // ALWAYS translate to all 3 languages automatically
     const descriptions = await translateDescription(description, sourceLanguage);
-    
-    console.log('✅ Translations completed:', {
+
+    Logger.info(`Translations completed: ${JSON.stringify({
       en: descriptions.en?.substring(0, 50) + '...',
       fr: descriptions.fr?.substring(0, 50) + '...',
       es: descriptions.es?.substring(0, 50) + '...'
-    });
+    })}`);
 
-    console.log('🎵 Generating audio in all 3 languages...');
-    
+    Logger.info('Generating audio in all 3 languages...');
+
     // ALWAYS generate audio in all 3 languages automatically
     const audioUrls = await generateMultiLanguageAudio(descriptions);
-    
-    console.log('✅ Audio generation completed:', Object.keys(audioUrls));
+
+    Logger.info(`Audio generation completed: ${JSON.stringify(Object.keys(audioUrls))}`);
 
     const updated = await Artwork.findByIdAndUpdate(
       id,
@@ -196,7 +197,7 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
       },
       { new: true }
     );
-    
+
     if (!updated) return res.status(404).json({ error: 'Not found' });
 
     res.json({
@@ -206,37 +207,37 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
       year: updated.year,
       style: updated.style,
       imageUrl: updated.imageUrl,
-      
+
       // All translations
       descriptions: {
         english: descriptions.en,
         french: descriptions.fr,
         spanish: descriptions.es
       },
-      
+
       // All audio files
       audioUrls: {
         english: audioUrls.en,
         french: audioUrls.fr,
         spanish: audioUrls.es
       },
-      
+
       sources: updated.sources,
-      
+
       // Summary
       translationsGenerated: ['English', 'French', 'Spanish'],
       audioFilesGenerated: Object.keys(audioUrls).map(lang => {
         const langNames = { en: 'English', fr: 'French', es: 'Spanish' };
         return langNames[lang as keyof typeof langNames];
       }),
-      
+
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt
     });
-    
+
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error('❌ Finalize error:', message);
+    Logger.error(`Finalize error: ${message}`);
     res.status(500).json({ error: message });
   }
 });
@@ -245,15 +246,15 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
 router.post('/test-translation', async (req: Request, res: Response) => {
   try {
     const { text, sourceLanguage = 'en' } = req.body;
-    
+
     if (!text) {
       return res.status(400).json({ error: 'Text is required' });
     }
 
-    console.log(`🧪 Testing translation of: "${text}"`);
-    
+    Logger.info(`Testing translation of: "${text}"`);
+
     const translations = await translateDescription(text, sourceLanguage);
-    
+
     res.json({
       original: text,
       sourceLanguage,
@@ -270,15 +271,15 @@ router.post('/test-translation', async (req: Request, res: Response) => {
 router.post('/test-tts', async (req: Request, res: Response) => {
   try {
     const { text = "Hello, this is a test of the text to speech system.", language = 'en' } = req.body;
-    
-    console.log(`🎵 Testing TTS for language: ${language}`);
-    console.log(`📝 Text: ${text}`);
-    
-    const audioUrl = await synthesizeWithElevenLabs({ 
-      text, 
-      language: language as 'en' | 'fr' | 'es' 
+
+    Logger.info(`Testing TTS for language: ${language}`);
+    Logger.info(`Text: ${text}`);
+
+    const audioUrl = await synthesizeWithElevenLabs({
+      text,
+      language: language as 'en' | 'fr' | 'es'
     });
-    
+
     if (audioUrl) {
       res.json({
         success: true,
@@ -294,7 +295,7 @@ router.post('/test-tts', async (req: Request, res: Response) => {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('TTS test error:', message);
+    Logger.error(`TTS test error: ${message}`);
     res.status(500).json({ error: message });
   }
 });
@@ -307,11 +308,11 @@ router.post('/test-vision', upload.single('image'), async (req: Request, res: Re
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    console.log(`🔍 Testing AI Vision with image: ${file.filename}`);
-    
+    Logger.info(`Testing AI Vision with image: ${file.filename}`);
+
     const imagePath = path.join(__dirname, '..', '..', 'uploads', file.filename);
     const aiResult = await recognizeArtworkFromImage(imagePath);
-    
+
     res.json({
       success: true,
       filename: file.filename,
@@ -319,10 +320,10 @@ router.post('/test-vision', upload.single('image'), async (req: Request, res: Re
       aiAnalysis: aiResult,
       message: 'AI Vision analysis completed'
     });
-    
+
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Vision test error:', message);
+    Logger.error(`Vision test error: ${message}`);
     res.status(500).json({ error: message });
   }
 });
@@ -335,12 +336,12 @@ router.post('/test-huggingface', upload.single('image'), async (req: Request, re
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    console.log(`🤖 Testing Hugging Face Vision with image: ${file.filename}`);
-    
+    Logger.info(`Testing Hugging Face Vision with image: ${file.filename}`);
+
     const imagePath = path.join(__dirname, '..', '..', 'uploads', file.filename);
     const { recognizeWithHuggingFace } = await import('../services/huggingface-vision');
     const hfResult = await recognizeWithHuggingFace(imagePath);
-    
+
     res.json({
       success: true,
       filename: file.filename,
@@ -349,10 +350,10 @@ router.post('/test-huggingface', upload.single('image'), async (req: Request, re
       provider: 'Hugging Face (FREE)',
       message: 'Hugging Face Vision analysis completed'
     });
-    
+
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Hugging Face test error:', message);
+    Logger.error(`Hugging Face test error: ${message}`);
     res.status(500).json({ error: `Hugging Face test failed: ${message}` });
   }
 });
@@ -380,7 +381,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
     // Best-effort delete files
     for (const file of files) {
-      try { fs.existsSync(file) && fs.unlinkSync(file); } catch {}
+      try { fs.existsSync(file) && fs.unlinkSync(file); } catch { }
     }
 
     res.json({ success: true });

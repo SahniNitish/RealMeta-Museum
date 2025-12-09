@@ -142,14 +142,14 @@ const VisitorScan: React.FC = () => {
         formData.append('language', selectedLanguage);
 
         try {
-          console.log('🔍 Identifying artwork...');
+          // Identifying artwork...
           const response = await axios.post(
             `${API_BASE}/visit/${qrCode}/identify`,
             formData,
             { headers: { 'Content-Type': 'multipart/form-data' } }
           );
 
-          console.log('✅ Match result:', response.data);
+          // Match result received
           setMatchResult(response.data);
         } catch (error: any) {
           console.error('Identification failed:', error);

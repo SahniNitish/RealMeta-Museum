@@ -6,6 +6,7 @@ import { Museum } from '../models/Museum';
 import { Artwork } from '../models/Artwork';
 import { connectToDatabase } from '../utils/db';
 import { generateImageEmbedding, findBestMatches, isConfidentMatch } from '../services/clip';
+import Logger from '../utils/logger';
 
 const router = Router();
 
@@ -64,7 +65,7 @@ router.get('/:qrCode', async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
-    console.error('❌ Error fetching museum by QR code:', error);
+    Logger.error(`Error fetching museum by QR code: ${error}`);
     res.status(500).json({ error: error.message });
   }
 });
@@ -80,12 +81,12 @@ router.post('/:qrCode/identify', visitorUpload.single('photo'), async (req: Requ
     const { language = 'en' } = req.body;
     const file = req.file;
 
-    console.log('🔍 Visitor artwork identification request:', {
+    Logger.info(`Visitor artwork identification request: ${JSON.stringify({
       qrCode,
       language,
       hasFile: !!file,
       filename: file?.filename
-    });
+    })}`);
 
     if (!file) {
       return res.status(400).json({ error: 'No photo uploaded' });
@@ -100,7 +101,7 @@ router.post('/:qrCode/identify', visitorUpload.single('photo'), async (req: Requ
       return res.status(404).json({ error: 'Museum not found' });
     }
 
-    console.log(`📍 Museum found: ${museum.name}`);
+    Logger.info(`Museum found: ${museum.name}`);
 
     // Get all artworks for this museum with embeddings
     const artworks = await Artwork.find({
@@ -108,7 +109,7 @@ router.post('/:qrCode/identify', visitorUpload.single('photo'), async (req: Requ
       imageEmbedding: { $exists: true, $ne: [] }
     });
 
-    console.log(`🎨 Found ${artworks.length} artworks with embeddings in ${museum.name}`);
+    Logger.info(`Found ${artworks.length} artworks with embeddings in ${museum.name}`);
 
     if (artworks.length === 0) {
       return res.json({
@@ -122,17 +123,17 @@ router.post('/:qrCode/identify', visitorUpload.single('photo'), async (req: Requ
     }
 
     // Generate embedding for visitor's photo
-    console.log('🎨 Generating embedding for visitor photo...');
+    Logger.info('Generating embedding for visitor photo...');
     const visitorEmbedding = await generateImageEmbedding(tempFilePath);
-    console.log('✅ Visitor photo embedding generated');
+    Logger.info('Visitor photo embedding generated');
 
     // Find best matches
     const matches = findBestMatches(visitorEmbedding, artworks, 3);
 
-    console.log('🎯 Match results:', matches.map(m => ({
+    Logger.info(`Match results: ${JSON.stringify(matches.map(m => ({
       title: m.artwork.title,
       score: (m.score * 100).toFixed(1) + '%'
-    })));
+    })))}`);
 
     // Determine if we have a confident match
     const confident = matches.length > 0 && isConfidentMatch(matches[0].score);
@@ -164,16 +165,16 @@ router.post('/:qrCode/identify', visitorUpload.single('photo'), async (req: Requ
     });
 
   } catch (error: any) {
-    console.error('❌ Error identifying artwork:', error);
+    Logger.error(`Error identifying artwork: ${error}`);
     res.status(500).json({ error: error.message });
   } finally {
     // Clean up temporary file
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       try {
         fs.unlinkSync(tempFilePath);
-        console.log('🗑️ Temporary visitor photo deleted');
+        Logger.info('Temporary visitor photo deleted');
       } catch (cleanupError) {
-        console.error('⚠️ Failed to delete temporary file:', cleanupError);
+        Logger.warn(`Failed to delete temporary file: ${cleanupError}`);
       }
     }
   }
@@ -217,7 +218,7 @@ router.get('/:qrCode/artworks', async (req: Request, res: Response) => {
       artworks: formattedArtworks
     });
   } catch (error: any) {
-    console.error('❌ Error fetching museum artworks:', error);
+    Logger.error(`Error fetching museum artworks: ${error}`);
     res.status(500).json({ error: error.message });
   }
 });
@@ -256,7 +257,7 @@ router.get('/artwork/:id', async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
-    console.error('❌ Error fetching artwork:', error);
+    Logger.error(`Error fetching artwork: ${error}`);
     res.status(500).json({ error: error.message });
   }
 });

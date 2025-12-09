@@ -479,6 +479,37 @@ npm run monitor
 
 ---
 
+## Production Deployment
+
+### Backend
+1. Build the TypeScript code:
+   ```bash
+   cd server
+   npm run build
+   ```
+2. Start the server in production mode:
+   ```bash
+   npm start
+   ```
+   This will run `node dist/index.js`.
+   Ensure all environment variables are set in `.env` or the server environment.
+
+### Frontend
+1. Build the frontend assets:
+   ```bash
+   cd web
+   npm run build
+   ```
+2. Serve the `dist` folder using a static file server (e.g., Nginx, Apache, or `serve`):
+   ```bash
+   npx serve -s dist
+   ```
+
+### Logging
+- The backend logs are structured using Winston.
+- In production, logs are output in JSON format for easy parsing by log management tools.
+- Log levels can be controlled via environment variables if configured (defaults to `info`).
+
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
