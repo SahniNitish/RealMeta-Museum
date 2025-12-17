@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import axios from 'axios';
+import Logger from '../utils/logger';
 
 export interface TtsOptions {
   text: string;
@@ -47,9 +48,9 @@ export async function synthesizeWithElevenLabs(options: TtsOptions): Promise<str
       const remaining = typeof sub.character_limit === 'number' && typeof sub.character_count === 'number'
         ? sub.character_limit - sub.character_count
         : undefined;
-      console.log(`🔑 ElevenLabs key ${maskedKey} | remaining=${remaining} of ${sub.character_limit}`);
+      Logger.info(`ElevenLabs key ${maskedKey} | remaining=${remaining} of ${sub.character_limit}`);
     } catch (quotaErr: any) {
-      console.log('ℹ️ Unable to read ElevenLabs quota:', quotaErr?.response?.status, quotaErr?.response?.data?.toString?.() || quotaErr?.message);
+      Logger.warn(`Unable to read ElevenLabs quota: ${quotaErr?.response?.status} ${quotaErr?.response?.data?.toString?.() || quotaErr?.message}`);
     }
 
     // Ensure uploads directory exists
@@ -66,7 +67,7 @@ export async function synthesizeWithElevenLabs(options: TtsOptions): Promise<str
   } catch (error: any) {
     const status = error?.response?.status;
     const data = error?.response?.data?.toString?.() || error?.message;
-    console.error(`TTS error for ${language}: status=${status} details=${data}`);
+    Logger.error(`TTS error for ${language}: status=${status} details=${data}`);
     return null;
   }
 }
@@ -77,7 +78,7 @@ export async function generateMultiLanguageAudio(descriptions: {
   es?: string;
 }): Promise<MultiLanguageAudio> {
   const audioUrls: MultiLanguageAudio = {};
-  
+
   for (const [lang, text] of Object.entries(descriptions)) {
     if (text && (lang === 'en' || lang === 'fr' || lang === 'es')) {
       const audioUrl = await synthesizeWithElevenLabs({
@@ -89,7 +90,7 @@ export async function generateMultiLanguageAudio(descriptions: {
       }
     }
   }
-  
+
   return audioUrls;
 }
 

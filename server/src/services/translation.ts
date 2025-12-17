@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import axios from 'axios';
+import Logger from '../utils/logger';
 
 export type SupportedLanguage = 'en' | 'fr' | 'es';
 
@@ -16,17 +17,17 @@ const languageNames = {
 };
 
 export async function translateDescription(
-  originalText: string, 
+  originalText: string,
   sourceLanguage: SupportedLanguage = 'en'
 ): Promise<TranslationResult> {
   const apiKey = process.env.OPENAI_API_KEY;
-  
+
   if (!apiKey) {
-    console.log('⚠️ No OpenAI API key found, trying Google Translate...');
+    Logger.warn('No OpenAI API key found, trying Google Translate...');
     try {
       return await translateWithGoogle(originalText, sourceLanguage);
     } catch (error) {
-      console.log('⚠️ Google Translate also failed, using mock translations');
+      Logger.warn('Google Translate also failed, using mock translations');
       return {
         en: originalText,
         fr: `[FR] ${originalText}`,
@@ -35,11 +36,11 @@ export async function translateDescription(
     }
   }
 
-  console.log(`🌍 Starting translation from ${languageNames[sourceLanguage]}:`);
-  console.log(`📝 Original text: ${originalText.substring(0, 100)}...`);
+  Logger.info(`🌍 Starting translation from ${languageNames[sourceLanguage]}:`);
+  Logger.debug(`📝 Original text: ${originalText.substring(0, 100)}...`);
 
   const client = new OpenAI({ apiKey });
-  
+
   const targetLanguages = ['en', 'fr', 'es'].filter(lang => lang !== sourceLanguage) as SupportedLanguage[];
   const result: Partial<TranslationResult> = {
     [sourceLanguage]: originalText
@@ -48,8 +49,8 @@ export async function translateDescription(
   // Translate to each target language
   for (const targetLang of targetLanguages) {
     try {
-      console.log(`🔄 Translating to ${languageNames[targetLang]}...`);
-      
+      Logger.info(`🔄 Translating to ${languageNames[targetLang]}...`);
+
       const prompt = `You are a professional translator. Translate this museum artwork description from ${languageNames[sourceLanguage]} to ${languageNames[targetLang]}.
 
 IMPORTANT: 
@@ -72,16 +73,16 @@ ${originalText}`;
       });
 
       const translation = response.choices[0]?.message?.content?.trim();
-      
+
       if (translation && translation !== originalText) {
         result[targetLang] = translation;
-        console.log(`✅ ${languageNames[targetLang]} translation: ${translation.substring(0, 50)}...`);
+        Logger.info(`✅ ${languageNames[targetLang]} translation: ${translation.substring(0, 50)}...`);
       } else {
-        console.log(`⚠️ Translation failed for ${targetLang}, using original text`);
+        Logger.warn(`Translation failed for ${targetLang}, using original text`);
         result[targetLang] = originalText;
       }
     } catch (error) {
-      console.error(`❌ Translation error for ${targetLang}:`, error);
+      Logger.error(`❌ Translation error for ${targetLang}: ${error}`);
       result[targetLang] = originalText; // Fallback to original
     }
   }
@@ -90,19 +91,19 @@ ${originalText}`;
 }
 
 export function getDescriptionByLanguage(
-  artwork: { description?: string; descriptions?: { en?: string; fr?: string; es?: string } }, 
+  artwork: { description?: string; descriptions?: { en?: string; fr?: string; es?: string } },
   language: SupportedLanguage
 ): string {
   // Try to get language-specific description first
   if (artwork.descriptions && artwork.descriptions[language]) {
     return artwork.descriptions[language]!;
   }
-  
+
   // Fallback to any available translation
   if (artwork.descriptions) {
     return artwork.descriptions.en || artwork.descriptions.fr || artwork.descriptions.es || '';
   }
-  
+
   // Final fallback to main description
   return artwork.description || '';
 }
@@ -116,14 +117,14 @@ async function translateWithGoogle(text: string, sourceLanguage: SupportedLangua
   };
 
   const targetLanguages = ['en', 'fr', 'es'].filter(lang => lang !== sourceLanguage);
-  
+
   for (const targetLang of targetLanguages) {
     try {
-      console.log(`🔄 Google Translate: ${sourceLanguage} → ${targetLang}`);
-      
+      Logger.debug(`Google Translate: ${sourceLanguage} → ${targetLang}`);
+
       // Using Google Translate free service
       const url = `https://translate.googleapis.com/translate_a/single`;
-      
+
       const response = await axios.get(url, {
         params: {
           client: 'gtx',
@@ -132,47 +133,47 @@ async function translateWithGoogle(text: string, sourceLanguage: SupportedLangua
           dt: 't',
           q: text
         },
-        headers: { 
+        headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
         timeout: 15000
       });
-      
-      console.log(`📡 Google Translate response for ${targetLang}:`, response.data);
-      
+
+      Logger.debug(`Google Translate response for ${targetLang}: ${JSON.stringify(response.data)}`);
+
       let translation = null;
       if (response.data && Array.isArray(response.data) && response.data[0]) {
         if (Array.isArray(response.data[0]) && response.data[0][0]) {
           translation = response.data[0][0][0];
         }
       }
-      
+
       if (translation && translation !== text) {
         result[targetLang as keyof TranslationResult] = translation;
-        console.log(`✅ Google translated to ${targetLang}: ${translation.substring(0, 50)}...`);
+        Logger.info(`Google translated to ${targetLang}: ${translation.substring(0, 50)}...`);
       } else {
         result[targetLang as keyof TranslationResult] = `[${targetLang.toUpperCase()}] ${text}`;
       }
     } catch (error) {
-      console.error(`❌ Google Translate failed for ${targetLang}:`, error);
-      
+      Logger.error(`Google Translate failed for ${targetLang}: ${error}`);
+
       // Try alternative translation service
       try {
-        console.log(`🔄 Trying alternative translation for ${targetLang}...`);
+        Logger.info(`Trying alternative translation for ${targetLang}...`);
         const altTranslation = await translateWithLibreTranslate(text, sourceLanguage, targetLang);
         if (altTranslation && altTranslation !== text) {
           result[targetLang as keyof TranslationResult] = altTranslation;
-          console.log(`✅ Alternative translation to ${targetLang}: ${altTranslation.substring(0, 50)}...`);
+          Logger.info(`Alternative translation to ${targetLang}: ${altTranslation.substring(0, 50)}...`);
         } else {
           result[targetLang as keyof TranslationResult] = `[${targetLang.toUpperCase()}] ${text}`;
         }
       } catch (altError) {
-        console.error(`❌ Alternative translation also failed for ${targetLang}:`, altError);
+        Logger.error(`Alternative translation also failed for ${targetLang}: ${altError}`);
         result[targetLang as keyof TranslationResult] = `[${targetLang.toUpperCase()}] ${text}`;
       }
     }
   }
-  
+
   return result;
 }
 
@@ -190,10 +191,10 @@ async function translateWithLibreTranslate(text: string, sourceLang: string, tar
       },
       timeout: 10000
     });
-    
+
     return response.data?.translatedText || null;
   } catch (error) {
-    console.error('LibreTranslate error:', error);
+    Logger.error(`LibreTranslate error: ${error}`);
     return null;
   }
 }

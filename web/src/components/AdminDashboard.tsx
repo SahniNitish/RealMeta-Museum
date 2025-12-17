@@ -77,7 +77,7 @@ const AdminDashboard: React.FC = () => {
 
   const handleStartCamera = async () => {
     try {
-      console.log('🎥 Starting camera...')
+      // Starting camera...
 
       // Show camera UI immediately
       setShowCamera(true)
@@ -87,36 +87,35 @@ const AdminDashboard: React.FC = () => {
       let stream: MediaStream | null = null
 
       try {
-        console.log('📷 Requesting camera with environment mode...')
+        // Requesting camera with environment mode...
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' },
           audio: false
         })
-        console.log('✅ Got environment camera stream')
+        // Got environment camera stream
       } catch (envError) {
-        console.log('⚠️ Environment camera not available, using default camera...')
+        // Environment camera not available, using default camera...
         stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: false
         })
-        console.log('✅ Got default camera stream')
+        // Got default camera stream
       }
 
       if (!stream) {
         throw new Error('Failed to get camera stream')
       }
 
-      console.log('📺 Setting up video element...')
+      // Setting up video element...
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        console.log('✅ Stream attached to video element')
+        // Stream attached to video element
 
         // Set up event handler BEFORE playing
         videoRef.current.onloadedmetadata = () => {
-          console.log('📊 Video metadata loaded')
           setCameraReady(true)
-          console.log('✅ Camera ready:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight)
+          // Camera ready
         }
 
         // Add a safety timeout in case loadedmetadata never fires
@@ -124,16 +123,15 @@ const AdminDashboard: React.FC = () => {
           if (!videoRef.current) return
           const width = videoRef.current.videoWidth
           const height = videoRef.current.videoHeight
-          console.log('⏰ Timeout check - dimensions:', width, 'x', height)
           if (width > 0 && height > 0) {
-            console.log('⏰ Forcing camera ready')
+            // Forcing camera ready
             setCameraReady(true)
           }
         }, 2000)
 
         try {
           await videoRef.current.play()
-          console.log('▶️ Video playing')
+          // Video playing
         } catch (playError) {
           console.error('❌ Video play error:', playError)
           // Even if play fails, keep stream active
@@ -141,7 +139,7 @@ const AdminDashboard: React.FC = () => {
       }
 
       streamRef.current = stream
-      console.log('✅ Camera setup complete')
+      // Camera setup complete
 
     } catch (err) {
       console.error('❌ Camera error:', err)
@@ -178,7 +176,7 @@ const AdminDashboard: React.FC = () => {
       return
     }
 
-    console.log('Capturing photo:', width, 'x', height)
+    // Capturing photo
 
     canvas.width = width
     canvas.height = height
@@ -198,7 +196,7 @@ const AdminDashboard: React.FC = () => {
         return
       }
 
-      console.log('Photo captured successfully, size:', blob.size, 'bytes')
+      // Photo captured successfully
       const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' })
       setSelectedFile(file)
       setUploadResult(null)
@@ -221,14 +219,14 @@ const AdminDashboard: React.FC = () => {
     formData.append('museumId', selectedMuseum)
 
     try {
-      console.log('📤 Uploading file:', selectedFile.name, 'Size:', selectedFile.size, 'bytes', 'Museum:', selectedMuseum)
+      // Uploading file
 
       const response = await axios.post(`${API_BASE}/admin/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
 
       setUploadResult(response.data)
-      console.log('✅ Upload successful:', response.data)
+      // Upload successful
     } catch (error: any) {
       console.error('❌ Upload failed:', error)
       console.error('Error details:', {
@@ -249,7 +247,7 @@ const AdminDashboard: React.FC = () => {
     if (!uploadResult?.id) return
 
     setFinalizing(true)
-    
+
     try {
       const response = await axios.post(`${API_BASE}/admin/${uploadResult.id}/finalize`, {
         title: artworkData.title,
@@ -260,9 +258,9 @@ const AdminDashboard: React.FC = () => {
         sources: artworkData.sources,
         sourceLanguage: 'en'
       })
-      
+
       setArtwork(response.data)
-      console.log('Finalize result:', response.data)
+      // Finalize result
     } catch (error) {
       console.error('Finalize failed:', error)
       alert('Finalize failed. Please try again.')
@@ -388,18 +386,18 @@ const AdminDashboard: React.FC = () => {
               <canvas ref={canvasRef} style={{ display: 'none' }} />
             </div>
           )}
-          
+
           {selectedFile && (
             <div className="file-preview">
-              <img 
-                src={URL.createObjectURL(selectedFile)} 
-                alt="Preview" 
+              <img
+                src={URL.createObjectURL(selectedFile)}
+                alt="Preview"
                 className="preview-image"
               />
               <p>Selected: {selectedFile.name}</p>
             </div>
           )}
-          
+
           <button
             onClick={handleUpload}
             disabled={!selectedFile || !selectedMuseum || uploading}
@@ -420,13 +418,13 @@ const AdminDashboard: React.FC = () => {
           <div className="analysis-results">
             <div className="result-card">
               <h3>📷 Image Analysis</h3>
-              <img 
-                src={`${API_HOST}${uploadResult.imageUrl}`} 
+              <img
+                src={`${API_HOST}${uploadResult.imageUrl}`}
                 alt="Uploaded artwork"
                 className="result-image"
               />
             </div>
-            
+
             <div className="result-card">
               <h3>🧠 AI Recognition</h3>
               <div className="ai-data">
@@ -464,7 +462,7 @@ const AdminDashboard: React.FC = () => {
                       </audio>
                     )}
                   </div>
-                  
+
                   <div className="translation">
                     <h4>🇫🇷 French</h4>
                     <p>{uploadResult.descriptions?.french}</p>
@@ -474,7 +472,7 @@ const AdminDashboard: React.FC = () => {
                       </audio>
                     )}
                   </div>
-                  
+
                   <div className="translation">
                     <h4>🇪🇸 Spanish</h4>
                     <p>{uploadResult.descriptions?.spanish}</p>
@@ -495,7 +493,7 @@ const AdminDashboard: React.FC = () => {
       {uploadResult && !artwork && (
         <div className="admin-section">
           <h2>✅ Step 3: Finalize Artwork</h2>
-          <FinalizeForm 
+          <FinalizeForm
             initialData={uploadResult}
             onFinalize={handleFinalize}
             isLoading={finalizing}
@@ -521,7 +519,7 @@ const AdminDashboard: React.FC = () => {
               <h3>🌍 Multilingual Content</h3>
               <p><strong>Translations:</strong> {artwork.translationsGenerated.join(', ')}</p>
               <p><strong>Audio Files:</strong> {artwork.audioFilesGenerated.join(', ')}</p>
-              
+
               <div className="language-tabs">
                 <div className="language-content">
                   <h4>🇺🇸 English</h4>
@@ -530,7 +528,7 @@ const AdminDashboard: React.FC = () => {
                     <source src={`${API_HOST}${artwork.audioUrls.english}`} type="audio/mpeg" />
                   </audio>
                 </div>
-                
+
                 <div className="language-content">
                   <h4>🇫🇷 French</h4>
                   <p>{artwork.descriptions.french}</p>
@@ -538,7 +536,7 @@ const AdminDashboard: React.FC = () => {
                     <source src={`${API_HOST}${artwork.audioUrls.french}`} type="audio/mpeg" />
                   </audio>
                 </div>
-                
+
                 <div className="language-content">
                   <h4>🇪🇸 Spanish</h4>
                   <p>{artwork.descriptions.spanish}</p>
@@ -552,16 +550,16 @@ const AdminDashboard: React.FC = () => {
             <div className="success-card">
               <h3>🔗 Public Access</h3>
               <p>Visitors can now access this artwork at:</p>
-              <a 
-                href={`/artwork/${artwork.id}`} 
-                target="_blank" 
+              <a
+                href={`/artwork/${artwork.id}`}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="public-link"
               >
                 View Public Page →
               </a>
               <div style={{ marginTop: '12px' }}>
-                <button onClick={() => handleDelete(artwork.id)} className="upload-btn" style={{ background:'#c0392b' }}>
+                <button onClick={() => handleDelete(artwork.id)} className="upload-btn" style={{ background: '#c0392b' }}>
                   🗑️ Delete Artwork
                 </button>
               </div>
@@ -668,8 +666,8 @@ const FinalizeForm: React.FC<FinalizeFormProps> = ({ initialData, onFinalize, is
         <small>💡 This description will be automatically translated to French and Spanish with audio narration</small>
       </div>
 
-      <button 
-        type="submit" 
+      <button
+        type="submit"
         disabled={isLoading}
         className="finalize-btn"
       >

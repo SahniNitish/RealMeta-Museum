@@ -29,7 +29,7 @@ function encodeImageToDataUrl(imageDiskPath: string): string {
 // Mock AI recognition for testing (remove when you have OpenAI key)
 function getMockAnalysis(imagePath: string): VisionResult {
   const filename = path.basename(imagePath).toLowerCase();
-  
+
   // Detect image type based on filename or use generic responses
   if (filename.includes('car') || filename.includes('vehicle') || filename.includes('auto')) {
     return {
@@ -120,60 +120,75 @@ export async function recognizeArtworkFromImage(imageDiskPath: string): Promise<
             },
             {
               type: 'text',
-              text: `You are a world-class museum curator and art historian with expertise in all forms of art, culture, and historical artifacts. Analyze this image with the highest level of scholarly detail and provide comprehensive educational content suitable for a museum setting.
+              text: `You are a world-renowned museum curator and art historian with expertise spanning all periods, cultures, and art forms. Your task is to create EXCEPTIONAL museum-quality content that would rival the Louvre, Met, or British Museum.
 
-ANALYSIS REQUIREMENTS:
+ANALYZE THIS IMAGE AND PROVIDE RICH, DETAILED INFORMATION:
 
-For ARTWORKS (paintings, sculptures, decorative arts, etc.):
-- Identify the specific artwork if recognizable (title, artist, creation date, current location/museum)
-- Analyze artistic style, period, movement, and technique
-- Describe visual elements: composition, color palette, brushwork, materials
-- Provide historical context: cultural significance, patron, commissioned purpose
-- Include educational insights: what visitors should know and appreciate
-- Mention similar works or related artists for context
+═══════════════════════════════════════════════════════════════════════════════
+IDENTIFICATION REQUIREMENTS
+═══════════════════════════════════════════════════════════════════════════════
 
-For CULTURAL ARTIFACTS & HISTORICAL OBJECTS:
-- Identify the object type, origin, and historical period
-- Describe craftsmanship, materials, and cultural significance
-- Explain the object's purpose, use, and social context
-- Provide cultural and historical background
-- Connect to broader historical narratives
+If you recognize this specific artwork:
+• Provide the EXACT title, artist's full name with birth-death dates
+• Specific creation date or period
+• Current museum/collection location if known
+• Medium and dimensions if identifiable
 
-For ARCHITECTURE & MONUMENTS:
-- Identify the structure, architect/builder, and construction period
-- Analyze architectural style, features, and innovations
-- Describe cultural and historical significance
-- Explain the building's purpose and social importance
+If you cannot identify the specific work:
+• Classify the style, period, and probable origin
+• Describe the artistic tradition it represents
+• Provide context about similar works
 
-For MODERN OBJECTS (cars, technology, etc.):
-- Identify the specific item, manufacturer, and era
-- Describe design features, technological innovations
-- Provide historical and cultural context
-- Explain significance in design/technological history
+═══════════════════════════════════════════════════════════════════════════════
+DESCRIPTION (4-6 DETAILED SENTENCES) - WRITE LIKE A MUSEUM LABEL
+═══════════════════════════════════════════════════════════════════════════════
 
-RESPONSE FORMAT:
-Return a comprehensive JSON response with these keys:
+Include ALL of these elements:
+
+1. VISUAL ANALYSIS: Describe what viewers see - composition, colors, techniques, 
+   materials, brushwork, style elements. Be specific about artistic techniques.
+
+2. HISTORICAL CONTEXT: When and why was this created? What was happening in the 
+   world/art world at that time? Who commissioned it? What was its original purpose?
+
+3. CULTURAL SIGNIFICANCE: Why is this important? What makes it famous or notable? 
+   How did it influence other artists or movements? What does it represent?
+
+4. ARTIST'S STORY: Include relevant details about the artist's life, career, 
+   and how this work fits into their broader body of work.
+
+5. INTERESTING FACTS: Include fascinating details that make visitors say "I didn't 
+   know that!" - provenance, hidden details, restoration history, controversies.
+
+═══════════════════════════════════════════════════════════════════════════════
+EDUCATIONAL NOTES (2-3 sentences for the studious visitor)
+═══════════════════════════════════════════════════════════════════════════════
+
+• Technical innovations or techniques to observe
+• Historical or artistic significance
+• What visitors should look for when viewing this work
+• Connection to broader art historical themes
+
+═══════════════════════════════════════════════════════════════════════════════
+RESPONSE FORMAT (JSON)
+═══════════════════════════════════════════════════════════════════════════════
+
 {
-  "title": "full artwork/object name with any subtitle",
-  "author": "artist/creator/manufacturer with birth-death dates if known",
-  "year": "creation date or era (be specific when possible)",
-  "style": "artistic style/period/movement/category",
-  "description": "detailed 4-5 sentence museum-quality description with visual analysis, historical context, and cultural significance",
-  "educationalNotes": "2-3 sentences of educational insights - what makes this significant, interesting techniques, historical importance, or cultural impact",
-  "relatedWorks": "mention 2-3 similar works, artists, or related pieces for context",
-  "museumLinks": "suggest relevant museum websites or educational resources where visitors could learn more",
-  "confidence": 0.0-1.0
+  "title": "Exact title with any subtitle - e.g., 'Mona Lisa (La Gioconda)'",
+  "author": "Artist Name (birth year - death year) - e.g., 'Leonardo da Vinci (1452-1519)'",
+  "year": "Specific date range - e.g., 'c. 1503-1519'",
+  "style": "Art movement and type - e.g., 'High Renaissance portrait painting'",
+  "description": "RICH 4-6 sentence museum-quality description with visual analysis, historical context, cultural significance, and fascinating details",
+  "educationalNotes": "Technical and historical insights for the curious visitor",
+  "relatedWorks": "2-3 comparable works with artists/titles for context",
+  "museumLinks": "Current location and suggested resources - e.g., 'Currently at the Louvre Museum, Paris. Related works at the Uffizi Gallery, Florence.'",
+  "confidence": 0.95
 }
 
-QUALITY STANDARDS:
-- Write as if creating a museum label or exhibition text
-- Use scholarly but accessible language
-- Include specific art historical terminology when appropriate
-- Provide educational value that enriches visitor understanding
-- If uncertain about specific identification, focus on style, period, and general category with educational context
-- Always aim to educate and inspire curiosity about the artwork or object
-
-Remember: You are creating content for a museum experience. Every response should be educational, accurate, and designed to enhance visitor appreciation and understanding.`
+═══════════════════════════════════════════════════════════════════════════════
+QUALITY STANDARD: Your description should make a visitor feel they just had a 
+private tour with a world-class curator. Every sentence should educate and inspire.
+═══════════════════════════════════════════════════════════════════════════════`
             }
           ]
         }]
@@ -350,7 +365,7 @@ Remember: You are creating content for a museum experience. Every response shoul
       // Fall through to local processing
     }
   }
-  
+
   // Use mock analysis as last resort
   console.log('🎭 Using Mock AI Analysis (no API keys available)');
   return getMockAnalysis(imageDiskPath);

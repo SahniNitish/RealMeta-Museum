@@ -21,7 +21,7 @@ function initializeVisionClient(): ImageAnnotatorClient {
     // Try different authentication methods
     const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
     const apiKey = process.env.GOOGLE_VISION_API_KEY;
-    
+
     if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
       console.log('🔑 Using Google Service Account authentication');
       visionClient = new ImageAnnotatorClient({
@@ -48,25 +48,25 @@ function generateDescription(
 ): string {
   const topLabels = labels.slice(0, 5).map(l => l.description.toLowerCase());
   const topObjects = objects.slice(0, 3).map(o => o.name.toLowerCase());
-  
+
   // Check for vehicles/cars
   const carKeywords = ['car', 'vehicle', 'automobile', 'motor vehicle', 'sports car', 'luxury vehicle', 'coupe', 'sedan', 'suv'];
-  const isVehicle = [...topLabels, ...topObjects].some(item => 
+  const isVehicle = [...topLabels, ...topObjects].some(item =>
     carKeywords.some(keyword => item.includes(keyword))
   );
-  
+
   // Check for artwork/paintings
   const artKeywords = ['art', 'painting', 'artwork', 'portrait', 'canvas', 'drawing', 'sculpture'];
-  const isArtwork = [...topLabels, ...topObjects].some(item => 
+  const isArtwork = [...topLabels, ...topObjects].some(item =>
     artKeywords.some(keyword => item.includes(keyword))
   );
-  
+
   // Check for architecture
   const archKeywords = ['building', 'architecture', 'church', 'cathedral', 'museum', 'monument'];
-  const isArchitecture = [...topLabels, ...topObjects].some(item => 
+  const isArchitecture = [...topLabels, ...topObjects].some(item =>
     archKeywords.some(keyword => item.includes(keyword))
   );
-  
+
   if (isVehicle) {
     const vehicleType = topLabels.find(label => carKeywords.some(k => label.includes(k))) || 'vehicle';
     return `This image shows a ${vehicleType} with distinctive automotive design elements. The AI analysis detected characteristics typical of ${topLabels.includes('luxury vehicle') || topLabels.includes('sports car') ? 'luxury or performance' : 'modern'} vehicles, including specific styling cues, proportions, and engineering details that suggest ${topLabels.includes('sports car') ? 'high-performance capabilities' : 'contemporary automotive design'}.`;
@@ -92,7 +92,7 @@ function inferMetadata(
   const topLabels = labels.slice(0, 5).map(l => l.description.toLowerCase());
   const topObjects = objects.slice(0, 3).map(o => o.name.toLowerCase());
   const allDetected = [...topLabels, ...topObjects];
-  
+
   // Vehicle detection
   if (allDetected.some(item => ['car', 'vehicle', 'automobile', 'sports car'].some(k => item.includes(k)))) {
     const isLuxury = allDetected.some(item => ['luxury', 'sports car', 'performance'].some(k => item.includes(k)));
@@ -103,7 +103,7 @@ function inferMetadata(
       style: isLuxury ? "High-Performance Automotive Design" : "Modern Automotive Photography"
     };
   }
-  
+
   // Artwork detection
   if (allDetected.some(item => ['art', 'painting', 'portrait', 'canvas'].some(k => item.includes(k)))) {
     const isPortrait = allDetected.some(item => item.includes('portrait'));
@@ -114,7 +114,7 @@ function inferMetadata(
       style: isPortrait ? "Portrait Painting" : "Fine Art"
     };
   }
-  
+
   // Architecture detection
   if (allDetected.some(item => ['building', 'architecture', 'church', 'cathedral'].some(k => item.includes(k)))) {
     return {
@@ -124,7 +124,7 @@ function inferMetadata(
       style: "Architectural Photography"
     };
   }
-  
+
   // Default
   return {
     title: `${labels[0]?.description || 'Image'} Analysis`,
@@ -138,25 +138,25 @@ function inferMetadata(
 export async function recognizeWithGoogleVision(imagePath: string): Promise<GoogleVisionResult> {
   try {
     console.log('🔍 Starting Google Vision API analysis...');
-    
+
     const client = initializeVisionClient();
-    
+
     // Read the image file
     const imageBuffer = fs.readFileSync(imagePath);
-    
+
     // Perform multiple types of analysis
     const [labelResult] = await client.labelDetection({ image: { content: imageBuffer } });
     const [objectResult] = await client.objectLocalization({ image: { content: imageBuffer } });
     const [textResult] = await client.textDetection({ image: { content: imageBuffer } });
-    
+
     // Extract results
     const labels = labelResult.labelAnnotations || [];
     const objects = objectResult.localizedObjectAnnotations || [];
     const textDetections = textResult.textAnnotations || [];
-    
+
     console.log('🏷️ Detected labels:', labels.slice(0, 5).map(l => `${l.description} (${(l.score! * 100).toFixed(1)}%)`));
     console.log('🎯 Detected objects:', objects.slice(0, 3).map(o => `${o.name} (${(o.score! * 100).toFixed(1)}%)`));
-    
+
     if (labels.length === 0 && objects.length === 0) {
       return {
         title: 'Unrecognized Image',
@@ -164,23 +164,34 @@ export async function recognizeWithGoogleVision(imagePath: string): Promise<Goog
         confidence: 0.1
       };
     }
-    
+
     // Generate metadata and description
-    const metadata = inferMetadata(labels, objects);
+    // Fix types by ensuring properties are present (Google Vision types have optional properties)
+    const cleanLabels = labels.map(l => ({
+      description: l.description || '',
+      score: l.score || 0
+    }));
+
+    const cleanObjects = objects.map(o => ({
+      name: o.name || '',
+      score: o.score || 0
+    }));
+
+    const metadata = inferMetadata(cleanLabels, cleanObjects);
     const description = generateDescription(
-      labels, 
-      objects, 
+      cleanLabels,
+      cleanObjects,
       textDetections.map(t => t.description || '').filter(t => t.length > 0)
     );
-    
+
     // Calculate confidence based on top detection scores
     const topScore = Math.max(
-      labels[0]?.score || 0,
-      objects[0]?.score || 0
+      cleanLabels[0]?.score || 0,
+      cleanObjects[0]?.score || 0
     );
-    
+
     console.log(`✅ Google Vision analysis complete: ${metadata.title} (${(topScore * 100).toFixed(1)}% confidence)`);
-    
+
     return {
       title: metadata.title,
       author: metadata.author,
@@ -191,10 +202,10 @@ export async function recognizeWithGoogleVision(imagePath: string): Promise<Goog
       detectedObjects: objects.slice(0, 5).map(o => o.name || ''),
       detectedText: textDetections.slice(0, 3).map(t => t.description || '').filter(t => t.length > 0)
     };
-    
+
   } catch (error) {
     console.error('❌ Google Vision API error:', error);
-    
+
     // Provide helpful error messages
     if (error.message?.includes('API key')) {
       return {
