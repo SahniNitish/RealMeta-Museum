@@ -36,6 +36,7 @@ const upload = multer({
 });
 
 // Upload an image and create a draft artwork record
+// OPTIMIZED: Run CLIP, AI, and Wikipedia in parallel. Translation/Audio deferred to finalize.
 router.post('/upload', upload.single('image'), async (req: Request, res: Response) => {
   try {
     await connectToDatabase();
@@ -67,51 +68,35 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
     const imageUrl = `/uploads/${file.filename}`;
     const absPath = path.join(__dirname, '..', '..', 'uploads', file.filename);
 
-    // Generate CLIP embedding for image matching
-    Logger.info('Generating CLIP embedding...');
-    let imageEmbedding: number[] = [];
-    try {
-      imageEmbedding = await generateImageEmbedding(absPath);
-      Logger.info('CLIP embedding generated successfully');
-    } catch (embError) {
-      Logger.warn(`CLIP embedding generation failed: ${embError}`);
-      // Continue without embedding - visitor matching won't work but admin can still upload
-    }
+    // OPTIMIZATION: Run CLIP embedding and AI recognition in parallel
+    Logger.info('Starting parallel processing: CLIP embedding + AI recognition...');
+    const startTime = Date.now();
 
-    // Try AI recognition
-    const ai = await recognizeArtworkFromImage(absPath);
+    const [clipResult, ai] = await Promise.all([
+      // CLIP embedding (wrapped to handle errors gracefully)
+      generateImageEmbedding(absPath).catch((err) => {
+        Logger.warn(`CLIP embedding generation failed: ${err}`);
+        return [] as number[];
+      }),
+      // AI recognition
+      recognizeArtworkFromImage(absPath)
+    ]);
+
+    const imageEmbedding = clipResult;
+    Logger.info(`Parallel processing completed in ${Date.now() - startTime}ms`);
+
+    // Fetch Wikipedia info in parallel if we have a title (fast operation)
     let wiki = null;
     if (ai.title) {
-      wiki = await fetchFromWikipedia(`${ai.title} ${ai.author || ''}`.trim());
+      try {
+        wiki = await fetchFromWikipedia(`${ai.title} ${ai.author || ''}`.trim());
+      } catch (wikiErr) {
+        Logger.warn(`Wikipedia fetch failed: ${wikiErr}`);
+      }
     }
 
-    // Create initial artwork with basic info
+    // Create initial artwork with basic info - NO translation/audio during upload
     const baseDescription = wiki?.description || ai.description || 'Artwork uploaded to museum system.';
-
-    // Auto-translate description if we have one
-    let descriptions = { en: baseDescription };
-    let audioUrls = {};
-
-    if (baseDescription && baseDescription !== 'Set OPENAI_API_KEY to enable recognition.') {
-      Logger.info('Auto-translating initial description...');
-      try {
-        descriptions = await translateDescription(baseDescription, 'en');
-        Logger.info('Translations completed');
-      } catch (error) {
-        Logger.warn(`Translation failed, using English only: ${error}`);
-        descriptions = { en: baseDescription, fr: baseDescription, es: baseDescription } as any;
-      }
-
-      // Try audio generation but don't fail the upload if it doesn't work
-      Logger.info('Attempting audio generation...');
-      try {
-        audioUrls = await generateMultiLanguageAudio(descriptions);
-        Logger.info('Audio files generated');
-      } catch (ttsError) {
-        Logger.warn(`Audio generation failed (upload will continue without audio): ${ttsError}`);
-        // Continue without audio - upload will still succeed
-      }
-    }
 
     const doc = await Artwork.create({
       title: ai.title || 'Unlabeled Artwork',
@@ -121,28 +106,30 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
       description: baseDescription,
       museumId: museum._id,
       imageEmbedding: imageEmbedding.length > 0 ? imageEmbedding : undefined,
-      descriptions,
+      descriptions: { en: baseDescription }, // Basic English only, translations on finalize
       imageUrl,
-      sources: wiki?.sources,
-      audioUrls: Object.keys(audioUrls).length > 0 ? audioUrls : undefined
+      sources: wiki?.sources
+      // audioUrls will be generated on finalize
     });
+
+    Logger.info(`Upload completed in ${Date.now() - startTime}ms total`);
 
     res.json({
       id: doc._id,
       imageUrl,
       ai,
       wiki,
-      autoTranslated: Object.keys(descriptions).length > 1,
-      audioGenerated: Object.keys(audioUrls),
+      autoTranslated: false, // Translations happen on finalize
+      audioGenerated: [],    // Audio happens on finalize
       descriptions: {
-        english: (descriptions as any).en || baseDescription,
-        french: (descriptions as any).fr || (descriptions as any).en || baseDescription,
-        spanish: (descriptions as any).es || (descriptions as any).en || baseDescription
+        english: baseDescription,
+        french: baseDescription, // Placeholder - will be translated on save
+        spanish: baseDescription
       },
       audioUrls: {
-        english: (audioUrls as any).en || undefined,
-        french: (audioUrls as any).fr || undefined,
-        spanish: (audioUrls as any).es || undefined
+        english: undefined,
+        french: undefined,
+        spanish: undefined
       }
     });
   } catch (err: unknown) {

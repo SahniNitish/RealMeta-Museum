@@ -6,6 +6,7 @@ import adminRouter from './routes/admin';
 import publicRouter from './routes/public';
 import museumsRouter from './routes/museums';
 import visitorRouter from './routes/visitor';
+import authRouter from './routes/auth';
 import { connectToDatabase } from './utils/db';
 import Logger from './utils/logger';
 
@@ -14,7 +15,17 @@ dotenv.config({ override: true });
 
 const app = express();
 
-app.use(cors());
+// CORS configuration for production
+app.use(cors({
+  origin: true, // Allow all origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true
+}));
+
+// Handle preflight requests
+app.options('*', cors());
+
 app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
@@ -24,6 +35,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/museums', museumsRouter);
 app.use('/api/visit', visitorRouter);

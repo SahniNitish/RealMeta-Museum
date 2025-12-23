@@ -262,4 +262,110 @@ router.get('/artwork/:id', async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/visit/artwork/:id/translate - On-demand translation and audio generation
+// Called when visitor switches to a language not yet cached
+router.post('/artwork/:id/translate', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+
+    const { id } = req.params;
+    const { language = 'en' } = req.body;
+
+    Logger.info(`On-demand translation request: artwork=${id}, language=${language}`);
+
+    const artwork = await Artwork.findById(id);
+
+    if (!artwork) {
+      return res.status(404).json({ error: 'Artwork not found' });
+    }
+
+    // Check if we already have this translation cached
+    const descriptions = artwork.descriptions as any || {};
+    const audioUrls = artwork.audioUrls as any || {};
+
+    if (descriptions[language] && audioUrls[language]) {
+      Logger.info(`Translation already cached for ${language}`);
+      return res.json({
+        success: true,
+        cached: true,
+        description: descriptions[language],
+        audioUrl: audioUrls[language]
+      });
+    }
+
+    // Get English description as source
+    const sourceText = descriptions.en || artwork.description || '';
+
+    if (!sourceText) {
+      return res.status(400).json({ error: 'No source description available' });
+    }
+
+    // Import services dynamically to avoid circular dependencies
+    const { translateToLanguage } = await import('../services/translation');
+    const { generateSingleLanguageAudio } = await import('../services/tts');
+
+    // Translate if needed
+    let translatedText = descriptions[language];
+    if (!translatedText) {
+      Logger.info(`Translating to ${language}...`);
+      translatedText = await translateToLanguage(sourceText, language, 'en');
+      descriptions[language] = translatedText;
+    }
+
+    // Generate audio if needed
+    let audioUrl = audioUrls[language];
+    if (!audioUrl && translatedText) {
+      Logger.info(`Generating audio for ${language}...`);
+      audioUrl = await generateSingleLanguageAudio(translatedText, language);
+      if (audioUrl) {
+        audioUrls[language] = audioUrl;
+      }
+    }
+
+    // Save updated translations and audio to database (cache for future)
+    await Artwork.findByIdAndUpdate(id, {
+      descriptions,
+      audioUrls
+    });
+
+    Logger.info(`On-demand translation complete for ${language}`);
+
+    res.json({
+      success: true,
+      cached: false,
+      language,
+      description: translatedText,
+      audioUrl: audioUrl || null
+    });
+
+  } catch (error: any) {
+    Logger.error(`On-demand translation error: ${error}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/visit/languages - Get list of supported languages
+router.get('/languages', (_req: Request, res: Response) => {
+  const languages = [
+    { code: 'en', name: 'English', flag: '🇺🇸' },
+    { code: 'es', name: 'Español', flag: '🇪🇸' },
+    { code: 'fr', name: 'Français', flag: '🇫🇷' },
+    { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+    { code: 'it', name: 'Italiano', flag: '🇮🇹' },
+    { code: 'pt', name: 'Português', flag: '🇵🇹' },
+    { code: 'nl', name: 'Nederlands', flag: '🇳🇱' },
+    { code: 'zh', name: '中文', flag: '🇨🇳' },
+    { code: 'ja', name: '日本語', flag: '🇯🇵' },
+    { code: 'ko', name: '한국어', flag: '🇰🇷' },
+    { code: 'hi', name: 'हिन्दी', flag: '🇮🇳' },
+    { code: 'ar', name: 'العربية', flag: '🇸🇦' },
+    { code: 'ru', name: 'Русский', flag: '🇷🇺' },
+    { code: 'tr', name: 'Türkçe', flag: '🇹🇷' },
+    { code: 'pl', name: 'Polski', flag: '🇵🇱' },
+    { code: 'sv', name: 'Svenska', flag: '🇸🇪' },
+  ];
+
+  res.json({ success: true, languages });
+});
+
 export default router;
