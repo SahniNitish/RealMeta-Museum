@@ -1,27 +1,157 @@
-/* Base styles - Dark theme foundation */
-:root {
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color-scheme: dark;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Museum Dark Theme - Sophisticated Gallery Aesthetic */
+    --background: 220 20% 8%;
+    --foreground: 40 20% 95%;
+
+    --card: 220 18% 12%;
+    --card-foreground: 40 20% 95%;
+
+    --popover: 220 18% 10%;
+    --popover-foreground: 40 20% 95%;
+
+    /* Gold accent - museum elegance */
+    --primary: 42 85% 55%;
+    --primary-foreground: 220 20% 8%;
+
+    --secondary: 220 15% 18%;
+    --secondary-foreground: 40 20% 90%;
+
+    --muted: 220 15% 16%;
+    --muted-foreground: 220 10% 55%;
+
+    --accent: 42 70% 45%;
+    --accent-foreground: 220 20% 8%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 20%;
+    --input: 220 15% 18%;
+    --ring: 42 85% 55%;
+
+    --radius: 0.75rem;
+
+    /* Custom tokens */
+    --gold-glow: 42 85% 55%;
+    --gold-soft: 42 60% 70%;
+    --surface-elevated: 220 18% 14%;
+    --surface-hover: 220 15% 22%;
+
+    /* Sidebar */
+    --sidebar-background: 220 20% 6%;
+    --sidebar-foreground: 40 20% 85%;
+    --sidebar-primary: 42 85% 55%;
+    --sidebar-primary-foreground: 220 20% 8%;
+    --sidebar-accent: 220 15% 14%;
+    --sidebar-accent-foreground: 40 20% 90%;
+    --sidebar-border: 220 15% 15%;
+    --sidebar-ring: 42 85% 55%;
+  }
 }
 
-#root {
-  width: 100%;
-  min-height: 100vh;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+  }
 }
 
-a {
-  font-weight: 500;
-  text-decoration: inherit;
+@layer utilities {
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
+
+  .font-body {
+    font-family: 'Inter', sans-serif;
+  }
+
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(42 85% 55%), hsl(35 90% 45%));
+  }
+
+  .glow-gold {
+    box-shadow: 0 0 40px hsl(42 85% 55% / 0.2);
+  }
+
+  .surface-elevated {
+    background-color: hsl(var(--surface-elevated));
+  }
+
+  .glass-effect {
+    @apply backdrop-blur-xl;
+    background: hsl(var(--card) / 0.8);
+  }
 }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
+/* Custom Animations */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px hsl(42 85% 55% / 0.3); }
+  50% { box-shadow: 0 0 40px hsl(42 85% 55% / 0.6); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+  background: linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(42 85% 55% / 0.3) 50%, hsl(var(--muted)) 100%);
+  background-size: 200% 100%;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
 }

@@ -2,18 +2,36 @@ import OpenAI from 'openai';
 import axios from 'axios';
 import Logger from '../utils/logger';
 
-export type SupportedLanguage = 'en' | 'fr' | 'es';
+// Extended language support (15+ languages)
+export type SupportedLanguage =
+  | 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'nl' // European
+  | 'zh' | 'ja' | 'ko' | 'hi' | 'ar' | 'ru' | 'tr' // Asian/Middle Eastern
+  | 'pl' | 'sv' | 'da' | 'no' | 'fi'; // Nordic/Eastern European
 
 export interface TranslationResult {
-  en: string;
-  fr: string;
-  es: string;
+  [key: string]: string;
 }
 
-const languageNames = {
+export const languageNames: Record<string, string> = {
   en: 'English',
+  es: 'Spanish',
   fr: 'French',
-  es: 'Spanish'
+  de: 'German',
+  it: 'Italian',
+  pt: 'Portuguese',
+  nl: 'Dutch',
+  zh: 'Chinese',
+  ja: 'Japanese',
+  ko: 'Korean',
+  hi: 'Hindi',
+  ar: 'Arabic',
+  ru: 'Russian',
+  tr: 'Turkish',
+  pl: 'Polish',
+  sv: 'Swedish',
+  da: 'Danish',
+  no: 'Norwegian',
+  fi: 'Finnish'
 };
 
 export async function translateDescription(
@@ -196,5 +214,108 @@ async function translateWithLibreTranslate(text: string, sourceLang: string, tar
   } catch (error) {
     Logger.error(`LibreTranslate error: ${error}`);
     return null;
+  }
+}
+
+/**
+ * Translate text to a single target language (on-demand)
+ * Used when visitor switches language
+ */
+export async function translateToLanguage(
+  text: string,
+  targetLanguage: SupportedLanguage,
+  sourceLanguage: SupportedLanguage = 'en'
+): Promise<string> {
+  // If same language, return original
+  if (targetLanguage === sourceLanguage) {
+    return text;
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  const targetName = languageNames[targetLanguage] || targetLanguage;
+  const sourceName = languageNames[sourceLanguage] || sourceLanguage;
+
+  Logger.info(`🌍 On-demand translation: ${sourceName} → ${targetName}`);
+
+  if (!apiKey) {
+    Logger.warn('No OpenAI API key, trying Google Translate...');
+    try {
+      return await translateSingleWithGoogle(text, sourceLanguage, targetLanguage);
+    } catch (error) {
+      Logger.error(`Google Translate failed: ${error}`);
+      return text; // Return original if all fails
+    }
+  }
+
+  try {
+    const client = new OpenAI({ apiKey });
+
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a professional museum translator. Translate the following text to ${targetName}. Return ONLY the translation, nothing else. Keep the same meaning and professional tone suitable for museum visitors.`
+        },
+        { role: 'user', content: text }
+      ],
+      max_tokens: 1000,
+      temperature: 0.1,
+    });
+
+    const translation = response.choices[0]?.message?.content?.trim();
+
+    if (translation && translation !== text) {
+      Logger.info(`✅ Translated to ${targetName}: ${translation.substring(0, 50)}...`);
+      return translation;
+    }
+
+    return text;
+  } catch (error) {
+    Logger.error(`❌ OpenAI translation error: ${error}`);
+    // Try Google as fallback
+    try {
+      return await translateSingleWithGoogle(text, sourceLanguage, targetLanguage);
+    } catch {
+      return text;
+    }
+  }
+}
+
+/**
+ * Google Translate for single language (fallback)
+ */
+async function translateSingleWithGoogle(
+  text: string,
+  sourceLang: string,
+  targetLang: string
+): Promise<string> {
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single`;
+
+    const response = await axios.get(url, {
+      params: {
+        client: 'gtx',
+        sl: sourceLang,
+        tl: targetLang,
+        dt: 't',
+        q: text
+      },
+      headers: {
+        'User-Agent': 'Mozilla/5.0'
+      },
+      timeout: 15000
+    });
+
+    if (response.data?.[0]?.[0]?.[0]) {
+      const translation = response.data[0].map((part: any) => part[0]).join('');
+      Logger.info(`✅ Google translated to ${targetLang}: ${translation.substring(0, 50)}...`);
+      return translation;
+    }
+
+    return text;
+  } catch (error) {
+    Logger.error(`Google Translate error: ${error}`);
+    throw error;
   }
 }

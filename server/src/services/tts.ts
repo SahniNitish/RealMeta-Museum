@@ -4,33 +4,60 @@ import dotenv from 'dotenv';
 import axios from 'axios';
 import Logger from '../utils/logger';
 
+// Extended language support matching translation service
+export type TtsLanguage =
+  | 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'nl'
+  | 'zh' | 'ja' | 'ko' | 'hi' | 'ar' | 'ru' | 'tr'
+  | 'pl' | 'sv' | 'da' | 'no' | 'fi';
+
 export interface TtsOptions {
   text: string;
-  voiceId?: string; // For ElevenLabs
-  language?: 'en' | 'fr' | 'es'; // Supported languages
+  voiceId?: string;
+  language?: TtsLanguage;
 }
 
 export interface MultiLanguageAudio {
-  en?: string;
-  fr?: string;
-  es?: string;
+  [key: string]: string | undefined;
 }
 
-// Voice IDs for different languages
-const VOICE_IDS = {
-  en: '21m00Tcm4TlvDq8ikWAM', // Rachel (English)
-  fr: 'ThT5KcBeYPX3keUQqHPh', // Dorothy (French)
-  es: 'IKne3meq5aSn9XLyUdCD', // Domi (Spanish)
+// ElevenLabs voice IDs - using multilingual voices that work across languages
+// The eleven_multilingual_v2 model automatically handles language detection
+const DEFAULT_VOICE = '21m00Tcm4TlvDq8ikWAM'; // Rachel - works well with multilingual model
+
+// Language-specific voices for better pronunciation (optional overrides)
+const VOICE_IDS: Record<string, string> = {
+  en: '21m00Tcm4TlvDq8ikWAM', // Rachel
+  es: 'IKne3meq5aSn9XLyUdCD', // Domi
+  fr: 'ThT5KcBeYPX3keUQqHPh', // Dorothy
+  de: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  it: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  pt: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  nl: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  zh: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  ja: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  ko: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  hi: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  ar: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  ru: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  tr: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  pl: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  sv: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  da: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  no: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
+  fi: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
 };
 
 export async function synthesizeWithElevenLabs(options: TtsOptions): Promise<string | null> {
   // Force-load env from the server/.env file to avoid stale User/Machine vars
   dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env'), override: true });
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    Logger.warn('No ELEVENLABS_API_KEY found, audio generation skipped');
+    return null;
+  }
 
   const language = options.language || 'en';
-  const voiceId = options.voiceId || VOICE_IDS[language];
+  const voiceId = options.voiceId || VOICE_IDS[language] || DEFAULT_VOICE;
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
   const outName = `${Date.now()}_narration_${language}.mp3`;
   // Resolve uploads directory relative to compiled file location to avoid cwd issues
@@ -73,25 +100,47 @@ export async function synthesizeWithElevenLabs(options: TtsOptions): Promise<str
 }
 
 export async function generateMultiLanguageAudio(descriptions: {
-  en?: string;
-  fr?: string;
-  es?: string;
+  [key: string]: string | undefined;
 }): Promise<MultiLanguageAudio> {
   const audioUrls: MultiLanguageAudio = {};
 
   for (const [lang, text] of Object.entries(descriptions)) {
-    if (text && (lang === 'en' || lang === 'fr' || lang === 'es')) {
+    if (text) {
       const audioUrl = await synthesizeWithElevenLabs({
         text,
-        language: lang as 'en' | 'fr' | 'es'
+        language: lang as TtsLanguage
       });
       if (audioUrl) {
-        audioUrls[lang as keyof MultiLanguageAudio] = audioUrl;
+        audioUrls[lang] = audioUrl;
       }
     }
   }
 
   return audioUrls;
+}
+
+/**
+ * Generate audio for a single language (on-demand)
+ * Used when visitor switches language
+ */
+export async function generateSingleLanguageAudio(
+  text: string,
+  language: TtsLanguage
+): Promise<string | null> {
+  Logger.info(`🔊 Generating on-demand audio for ${language}...`);
+
+  const audioUrl = await synthesizeWithElevenLabs({
+    text,
+    language
+  });
+
+  if (audioUrl) {
+    Logger.info(`✅ Audio generated for ${language}: ${audioUrl}`);
+  } else {
+    Logger.warn(`⚠️ Audio generation failed for ${language}`);
+  }
+
+  return audioUrl;
 }
 
 
