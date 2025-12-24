@@ -191,6 +191,7 @@ export default function AdminRegister() {
                       onChange={(e) => updateField('name', e.target.value)}
                       placeholder="John Doe"
                       required
+                      autoComplete="name"
                       className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                     />
                   </div>
@@ -209,6 +210,7 @@ export default function AdminRegister() {
                       onChange={(e) => updateField('email', e.target.value)}
                       placeholder="admin@museum.com"
                       required
+                      autoComplete="email"
                       className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                     />
                   </div>
@@ -228,6 +230,7 @@ export default function AdminRegister() {
                       placeholder="Min 6 characters"
                       required
                       minLength={6}
+                      autoComplete="new-password"
                       className="w-full pl-11 pr-12 py-3 rounded-xl bg-muted/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                     />
                     <button
@@ -253,6 +256,7 @@ export default function AdminRegister() {
                       onChange={(e) => updateField('confirmPassword', e.target.value)}
                       placeholder="Re-enter password"
                       required
+                      autoComplete="new-password"
                       className="w-full pl-11 pr-4 py-3 rounded-xl bg-muted/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                     />
                   </div>
