@@ -28,7 +28,8 @@ const BrowseCollection: React.FC = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
   const [selectedArtwork, setSelectedArtwork] = useState<Artwork | null>(null);
 
-  const API_HOST = `http://${window.location.hostname}:4000`;
+  // Use centralized API config - supports both dev and production
+  const API_HOST = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? `http://${window.location.hostname}:4000` : window.location.origin);
   const API_BASE = `${API_HOST}/api`;
 
   const languageOptions = {

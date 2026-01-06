@@ -23,8 +23,9 @@ const VisitorInterface: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'fr' | 'es'>('en')
 
-  const API_HOST = `http://${window.location.hostname}:4000`
-  const API_BASE = `${API_HOST}/api`
+  // Use centralized API config - supports both dev and production
+  const API_HOST = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? `http://${window.location.hostname}:4000` : window.location.origin);
+  const API_BASE = `${API_HOST}/api`;
 
   const languageOptions = {
     en: { flag: '🇺🇸', name: 'English' },
