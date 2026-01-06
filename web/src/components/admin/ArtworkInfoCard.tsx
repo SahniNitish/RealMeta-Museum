@@ -36,6 +36,7 @@ interface ArtworkInfo {
     es?: string;
   };
   sources?: Array<{ provider: string; url: string }>;
+  externalLinks?: Array<{ label: string; url: string }>;
 }
 
 interface ArtworkInfoCardProps {
@@ -187,6 +188,38 @@ export const ArtworkInfoCard = ({ info, imageUrl, apiHost, onSave, onEdit, isSav
                 >
                   {source.provider}
                   <ExternalLink className="w-3 h-3" />
+                </a>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* External Links */}
+        {info.externalLinks && info.externalLinks.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45 }}
+            className="p-6 rounded-2xl bg-card border border-border"
+          >
+            <h3 className="font-display text-lg text-foreground mb-3 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <ExternalLink className="w-4 h-4 text-primary" />
+              </div>
+              External Resources
+            </h3>
+            <div className="space-y-2">
+              {info.externalLinks.map((link, idx) => (
+                <a
+                  key={idx}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors group"
+                >
+                  <span className="font-medium text-sm text-foreground">{link.label}</span>
+                  <span className="text-xs text-muted-foreground truncate flex-1">{link.url}</span>
+                  <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 </a>
               ))}
             </div>

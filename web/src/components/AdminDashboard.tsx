@@ -20,6 +20,7 @@ interface Artwork {
   }
   translationsGenerated: string[]
   audioFilesGenerated: string[]
+  externalLinks?: { label: string; url: string }[]
 }
 
 interface Museum {
@@ -256,7 +257,7 @@ const AdminDashboard: React.FC = () => {
         style: artworkData.style,
         description: artworkData.description,
         sources: artworkData.sources,
-        sourceLanguage: 'en'
+        externalLinks: artworkData.externalLinks
       })
 
       setArtwork(response.data)
@@ -449,42 +450,6 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            {uploadResult.autoTranslated && (
-              <div className="result-card">
-                <h3>🌍 Translations Generated</h3>
-                <div className="translations">
-                  <div className="translation">
-                    <h4>🇺🇸 English</h4>
-                    <p>{uploadResult.descriptions?.english}</p>
-                    {uploadResult.audioUrls?.english && (
-                      <audio controls>
-                        <source src={`${API_HOST}${uploadResult.audioUrls.english}`} type="audio/mpeg" />
-                      </audio>
-                    )}
-                  </div>
-
-                  <div className="translation">
-                    <h4>🇫🇷 French</h4>
-                    <p>{uploadResult.descriptions?.french}</p>
-                    {uploadResult.audioUrls?.french && (
-                      <audio controls>
-                        <source src={`${API_HOST}${uploadResult.audioUrls.french}`} type="audio/mpeg" />
-                      </audio>
-                    )}
-                  </div>
-
-                  <div className="translation">
-                    <h4>🇪🇸 Spanish</h4>
-                    <p>{uploadResult.descriptions?.spanish}</p>
-                    {uploadResult.audioUrls?.spanish && (
-                      <audio controls>
-                        <source src={`${API_HOST}${uploadResult.audioUrls.spanish}`} type="audio/mpeg" />
-                      </audio>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -517,35 +482,73 @@ const AdminDashboard: React.FC = () => {
 
             <div className="success-card">
               <h3>🌍 Multilingual Content</h3>
-              <p><strong>Translations:</strong> {artwork.translationsGenerated.join(', ')}</p>
-              <p><strong>Audio Files:</strong> {artwork.audioFilesGenerated.join(', ')}</p>
+              <p><strong>Translations:</strong> {artwork.translationsGenerated?.join(', ')}</p>
+              <p><strong>Audio Files:</strong> {artwork.audioFilesGenerated?.join(', ')}</p>
 
               <div className="language-tabs">
                 <div className="language-content">
                   <h4>🇺🇸 English</h4>
-                  <p>{artwork.descriptions.english}</p>
-                  <audio controls>
-                    <source src={`${API_HOST}${artwork.audioUrls.english}`} type="audio/mpeg" />
-                  </audio>
+                  <p>{artwork.descriptions?.english}</p>
+                  {artwork.audioUrls?.english && (
+                    <audio controls>
+                      <source src={`${API_HOST}${artwork.audioUrls.english}`} type="audio/mpeg" />
+                    </audio>
+                  )}
                 </div>
 
                 <div className="language-content">
                   <h4>🇫🇷 French</h4>
-                  <p>{artwork.descriptions.french}</p>
-                  <audio controls>
-                    <source src={`${API_HOST}${artwork.audioUrls.french}`} type="audio/mpeg" />
-                  </audio>
+                  <p>{artwork.descriptions?.french}</p>
+                  {artwork.audioUrls?.french && (
+                    <audio controls>
+                      <source src={`${API_HOST}${artwork.audioUrls.french}`} type="audio/mpeg" />
+                    </audio>
+                  )}
                 </div>
 
                 <div className="language-content">
                   <h4>🇪🇸 Spanish</h4>
-                  <p>{artwork.descriptions.spanish}</p>
-                  <audio controls>
-                    <source src={`${API_HOST}${artwork.audioUrls.spanish}`} type="audio/mpeg" />
-                  </audio>
+                  <p>{artwork.descriptions?.spanish}</p>
+                  {artwork.audioUrls?.spanish && (
+                    <audio controls>
+                      <source src={`${API_HOST}${artwork.audioUrls.spanish}`} type="audio/mpeg" />
+                    </audio>
+                  )}
                 </div>
               </div>
             </div>
+
+            {artwork.externalLinks && artwork.externalLinks.length > 0 && (
+              <div className="success-card">
+                <h3>🔗 External Resources</h3>
+                <div style={{ marginTop: '8px' }}>
+                  {artwork.externalLinks.map((link, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        background: '#f8f9fa',
+                        borderRadius: '4px',
+                        marginBottom: '4px'
+                      }}
+                    >
+                      <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>{link.label}:</span>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#667eea' }}
+                      >
+                        {link.url}
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="success-card">
               <h3>🔗 Public Access</h3>
@@ -589,8 +592,10 @@ const FinalizeForm: React.FC<FinalizeFormProps> = ({ initialData, onFinalize, is
     year: initialData.ai?.year || '',
     style: initialData.ai?.style || '',
     description: initialData.descriptions?.english || initialData.ai?.description || '',
-    sources: initialData.wiki?.sources || []
+    sources: initialData.wiki?.sources || [],
+    externalLinks: [] as { label: string; url: string }[]
   })
+  const [newLink, setNewLink] = useState({ label: '', url: '' })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -601,6 +606,23 @@ const FinalizeForm: React.FC<FinalizeFormProps> = ({ initialData, onFinalize, is
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
+    })
+  }
+
+  const handleAddLink = () => {
+    if (newLink.label.trim() && newLink.url.trim()) {
+      setFormData({
+        ...formData,
+        externalLinks: [...formData.externalLinks, { label: newLink.label.trim(), url: newLink.url.trim() }]
+      })
+      setNewLink({ label: '', url: '' })
+    }
+  }
+
+  const handleRemoveLink = (index: number) => {
+    setFormData({
+      ...formData,
+      externalLinks: formData.externalLinks.filter((_, i) => i !== index)
     })
   }
 
@@ -664,6 +686,85 @@ const FinalizeForm: React.FC<FinalizeFormProps> = ({ initialData, onFinalize, is
           placeholder="Detailed description (will be translated to French and Spanish automatically)"
         />
         <small>💡 This description will be automatically translated to French and Spanish with audio narration</small>
+      </div>
+
+      {/* External Links Section */}
+      <div className="form-group">
+        <label>External Links (Google Drive, Resources, etc.)</label>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          <input
+            type="text"
+            placeholder="Link label (e.g., 'High-res Image')"
+            value={newLink.label}
+            onChange={(e) => setNewLink({ ...newLink, label: e.target.value })}
+            style={{ flex: 1 }}
+          />
+          <input
+            type="url"
+            placeholder="URL (e.g., https://drive.google.com/...)"
+            value={newLink.url}
+            onChange={(e) => setNewLink({ ...newLink, url: e.target.value })}
+            style={{ flex: 2 }}
+          />
+          <button
+            type="button"
+            onClick={handleAddLink}
+            style={{
+              padding: '8px 16px',
+              background: '#27ae60',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            + Add
+          </button>
+        </div>
+        {formData.externalLinks.length > 0 && (
+          <div style={{ marginTop: '8px' }}>
+            {formData.externalLinks.map((link, index) => (
+              <div
+                key={index}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 12px',
+                  background: '#f8f9fa',
+                  borderRadius: '4px',
+                  marginBottom: '4px'
+                }}
+              >
+                <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>{link.label}:</span>
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#667eea', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                >
+                  {link.url}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveLink(index)}
+                  style={{
+                    padding: '4px 8px',
+                    background: '#e74c3c',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <small>💡 Add external resource links like Google Drive, high-resolution images, or related documents</small>
       </div>
 
       <button

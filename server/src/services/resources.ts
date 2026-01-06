@@ -29,6 +29,9 @@ export async function fetchFromWikipedia(query: string): Promise<ResourceInfo | 
         srlimit: 3, // Get top 3 results
         origin: '*',
       },
+      headers: {
+        'User-Agent': 'MuseumAI/1.0 (https://realmeta.ca; contact@realmeta.ca) axios/1.x',
+      },
       timeout: 10000,
     });
 
@@ -57,6 +60,9 @@ export async function fetchFromWikipedia(query: string): Promise<ResourceInfo | 
         inprop: 'url',
         format: 'json',
         origin: '*',
+      },
+      headers: {
+        'User-Agent': 'MuseumAI/1.0 (https://realmeta.ca; contact@realmeta.ca) axios/1.x',
       },
       timeout: 10000,
     });

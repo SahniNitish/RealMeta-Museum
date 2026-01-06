@@ -29,8 +29,10 @@ export default function AdminUpload() {
     author: "",
     year: "",
     style: "",
-    description: ""
+    description: "",
+    externalLinks: [] as { label: string; url: string }[]
   });
+  const [newLink, setNewLink] = useState({ label: "", url: "" });
 
   // Save state
   const [isSaving, setIsSaving] = useState(false);
@@ -143,7 +145,26 @@ export default function AdminUpload() {
       author: artworkInfo?.author || "",
       year: artworkInfo?.year || "",
       style: artworkInfo?.style || "",
-      description: artworkInfo?.description || ""
+      description: artworkInfo?.description || "",
+      externalLinks: artworkInfo?.externalLinks || []
+    });
+    setNewLink({ label: "", url: "" });
+  };
+
+  const handleAddLink = () => {
+    if (newLink.label.trim() && newLink.url.trim()) {
+      setEditForm({
+        ...editForm,
+        externalLinks: [...editForm.externalLinks, { label: newLink.label.trim(), url: newLink.url.trim() }]
+      });
+      setNewLink({ label: "", url: "" });
+    }
+  };
+
+  const handleRemoveLink = (index: number) => {
+    setEditForm({
+      ...editForm,
+      externalLinks: editForm.externalLinks.filter((_, i) => i !== index)
     });
   };
 
@@ -191,6 +212,7 @@ export default function AdminUpload() {
           style: artworkInfo.style,
           description: descriptionToSave,
           sources: artworkInfo.sources,
+          externalLinks: artworkInfo.externalLinks || [],
           sourceLanguage: "en",
         },
         {
@@ -435,6 +457,64 @@ export default function AdminUpload() {
                     rows={5}
                     className="w-full px-4 py-3 rounded-xl bg-muted/50 border border-border focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none"
                   />
+                </div>
+
+                {/* External Links Section */}
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">External Links (Google Drive, Resources, etc.)</label>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Link label (e.g., 'High-res Image')"
+                      value={newLink.label}
+                      onChange={(e) => setNewLink({ ...newLink, label: e.target.value })}
+                      className="flex-1 px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                    />
+                    <input
+                      type="url"
+                      placeholder="URL (https://...)"
+                      value={newLink.url}
+                      onChange={(e) => setNewLink({ ...newLink, url: e.target.value })}
+                      className="flex-[2] px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddLink}
+                      className="px-3"
+                    >
+                      + Add
+                    </Button>
+                  </div>
+                  {editForm.externalLinks.length > 0 && (
+                    <div className="space-y-2 mt-2">
+                      {editForm.externalLinks.map((link, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 border border-border"
+                        >
+                          <span className="font-medium text-sm text-foreground">{link.label}:</span>
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary text-sm flex-1 truncate hover:underline"
+                          >
+                            {link.url}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLink(index)}
+                            className="p-1 rounded hover:bg-destructive/20 text-destructive transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-2">Add external resource links like Google Drive, high-resolution images, or documents</p>
                 </div>
               </div>
 

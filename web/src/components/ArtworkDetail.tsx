@@ -27,6 +27,10 @@ interface ArtworkDetail {
     provider: string
     url: string
   }>
+  externalLinks?: Array<{
+    label: string
+    url: string
+  }>
   currentLanguage: string
   localizedDescription: string
   localizedAudioUrl?: string
@@ -83,6 +87,7 @@ const ArtworkDetail: React.FC = () => {
         relatedWorks: artworkData.relatedWorks,
         museumLinks: artworkData.museumLinks,
         sources: artworkData.sources || [],
+        externalLinks: artworkData.externalLinks || [],
         currentLanguage: currentLang,
         localizedDescription: artworkData.description,
         localizedAudioUrl: artworkData.audioUrl,
@@ -276,14 +281,34 @@ const ArtworkDetail: React.FC = () => {
               <h3>📚 Sources</h3>
               <div className="sources-list">
                 {artwork.sources.map((source, index) => (
-                  <a 
+                  <a
                     key={index}
-                    href={source.url} 
-                    target="_blank" 
+                    href={source.url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="source-link"
                   >
                     📖 {source.provider} →
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* External Resources */}
+          {artwork.externalLinks && artwork.externalLinks.length > 0 && (
+            <div className="external-links">
+              <h3>🔗 External Resources</h3>
+              <div className="external-links-list">
+                {artwork.externalLinks.map((link, index) => (
+                  <a
+                    key={index}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="external-link"
+                  >
+                    🌐 {link.label} →
                   </a>
                 ))}
               </div>

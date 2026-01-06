@@ -146,7 +146,7 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
   try {
     await connectToDatabase();
     const { id } = req.params;
-    const { title, author, year, style, description, sources, sourceLanguage = 'en' } = req.body || {};
+    const { title, author, year, style, description, sources, externalLinks, sourceLanguage = 'en' } = req.body || {};
 
     if (!description) {
       return res.status(400).json({ error: 'Description is required for translation and audio generation' });
@@ -154,7 +154,7 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
 
     Logger.info(`Auto-translating description from ${sourceLanguage} to all languages...`);
 
-    // ALWAYS translate to all 3 languages automatically
+    // Translate to all 3 languages automatically
     const descriptions = await translateDescription(description, sourceLanguage);
 
     Logger.info(`Translations completed: ${JSON.stringify({
@@ -165,7 +165,7 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
 
     Logger.info('Generating audio in all 3 languages...');
 
-    // ALWAYS generate audio in all 3 languages automatically
+    // Generate audio in all 3 languages automatically
     const audioUrls = await generateMultiLanguageAudio(descriptions);
 
     Logger.info(`Audio generation completed: ${JSON.stringify(Object.keys(audioUrls))}`);
@@ -177,10 +177,11 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
         author,
         year,
         style,
-        description: descriptions[sourceLanguage as keyof typeof descriptions], // Use translated version as main description
-        descriptions, // Store all translations
+        description: descriptions[sourceLanguage as keyof typeof descriptions],
+        descriptions,
         sources,
-        audioUrls // Store all audio files
+        externalLinks, // External resource links (Google Drive, etc.)
+        audioUrls
       },
       { new: true }
     );
@@ -210,6 +211,7 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
       },
 
       sources: updated.sources,
+      externalLinks: updated.externalLinks,
 
       // Summary
       translationsGenerated: ['English', 'French', 'Spanish'],

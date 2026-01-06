@@ -11,6 +11,7 @@ export interface ArtworkDocument extends Document {
   museumLinks?: string;
   museumId?: mongoose.Types.ObjectId; // Link to museum
   imageEmbedding?: number[]; // CLIP embedding vector for image matching
+  externalLinks?: { label: string; url: string }[]; // External resource links (Google Drive, etc.)
   descriptions?: {
     en?: string;
     fr?: string;
@@ -54,6 +55,13 @@ const ArtworkSchema = new Schema<ArtworkDocument>(
     museumLinks: { type: String },
     museumId: { type: Schema.Types.ObjectId, ref: 'Museum', index: true },
     imageEmbedding: { type: [Number] }, // Array of numbers for CLIP vector
+    externalLinks: [
+      {
+        label: String,
+        url: String,
+        _id: false,
+      },
+    ],
     descriptions: {
       en: { type: String },
       fr: { type: String },

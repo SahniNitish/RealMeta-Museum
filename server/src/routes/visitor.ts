@@ -149,7 +149,8 @@ router.post('/:qrCode/identify', visitorUpload.single('photo'), async (req: Requ
       description: artwork.descriptions?.[language] || artwork.descriptions?.en || artwork.description,
       audioUrl: artwork.audioUrls?.[language] || artwork.audioUrls?.en,
       matchScore: Math.round(score * 100), // Convert to percentage
-      sources: artwork.sources
+      sources: artwork.sources,
+      externalLinks: artwork.externalLinks
     });
 
     res.json({
@@ -205,7 +206,8 @@ router.get('/:qrCode/artworks', async (req: Request, res: Response) => {
       imageUrl: artwork.imageUrl,
       description: (artwork.descriptions as any)?.[language as string] || (artwork.descriptions as any)?.en || artwork.description,
       audioUrl: (artwork.audioUrls as any)?.[language as string] || (artwork.audioUrls as any)?.en,
-      sources: artwork.sources
+      sources: artwork.sources,
+      externalLinks: artwork.externalLinks
     }));
 
     res.json({
@@ -249,6 +251,7 @@ router.get('/artwork/:id', async (req: Request, res: Response) => {
         description: (artwork.descriptions as any)?.[language as string] || (artwork.descriptions as any)?.en || artwork.description,
         audioUrl: (artwork.audioUrls as any)?.[language as string] || (artwork.audioUrls as any)?.en,
         sources: artwork.sources,
+        externalLinks: artwork.externalLinks,
         museum: artwork.museumId ? {
           id: (artwork.museumId as any)._id,
           name: (artwork.museumId as any).name,
