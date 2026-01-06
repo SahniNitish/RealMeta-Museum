@@ -123,7 +123,8 @@ export default function AdminUpload() {
           author: info.author,
           year: info.year,
           style: info.style,
-          description: info.description
+          description: info.description,
+          externalLinks: []
         });
         setIsAnalyzing(false);
         setAnalysisComplete(true);
