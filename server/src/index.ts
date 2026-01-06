@@ -15,18 +15,28 @@ dotenv.config({ override: true });
 
 const app = express();
 
-// CORS configuration for production
-const corsOptions = {
-  origin: true, // Allow all origins
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  credentials: true,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-};
+// CRITICAL: Handle OPTIONS preflight requests FIRST before anything else
+// This must come before any other middleware
+app.use((req: Request, res: Response, next) => {
+  // Set CORS headers for ALL requests
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.header('Access-Control-Allow-Credentials', 'true');
 
-// Enable CORS for all routes - this handles preflight automatically
-app.use(cors(corsOptions));
+  // Handle preflight OPTIONS requests immediately
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
+  next();
+});
+
+// Also use cors middleware for additional compatibility
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 
 app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
