@@ -25,10 +25,8 @@ const corsOptions = {
   optionsSuccessStatus: 204
 };
 
+// Enable CORS for all routes - this handles preflight automatically
 app.use(cors(corsOptions));
-
-// Explicitly handle ALL preflight OPTIONS requests BEFORE routes
-app.options('*', cors(corsOptions));
 
 app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
