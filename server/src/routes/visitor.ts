@@ -451,8 +451,12 @@ router.post('/:qrCode/track/:artworkId', async (req: Request, res: Response) => 
 
       if (visitor) {
         // Add artwork to viewed list if not already there
-        if (!visitor.artworksViewed.includes(artwork._id)) {
-          visitor.artworksViewed.push(artwork._id);
+        const artworkIdStr = artwork._id.toString();
+        const alreadyViewed = visitor.artworksViewed.some(
+          (id) => id.toString() === artworkIdStr
+        );
+        if (!alreadyViewed) {
+          visitor.artworksViewed.push(artwork._id as any);
           await visitor.save();
           Logger.info(`Tracked artwork view: visitor=${visitor._id}, artwork=${artwork.title}`);
         }
