@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import {
@@ -16,13 +16,10 @@ import {
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { cn } from "@/lib/utils";
 
 export default function AdminQRCodes() {
   const { museum } = useAuth();
   const [copied, setCopied] = useState(false);
-  const [downloadFormat, setDownloadFormat] = useState<"png" | "svg">("png");
-  const qrCanvasRef = useRef<HTMLDivElement>(null);
 
   // Production URL for visitor access
   const productionUrl = "https://real-meta-museum.vercel.app";

@@ -86,7 +86,6 @@ export default function VisitorHome() {
   const [visitorName, setVisitorName] = useState("");
   const [visitorPhone, setVisitorPhone] = useState("");
   const [visitorEmail, setVisitorEmail] = useState("");
-  const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Camera states
   const [showCamera, setShowCamera] = useState(false);
@@ -116,7 +115,6 @@ export default function VisitorHome() {
     // Check if visitor already registered (sessionId in localStorage)
     const savedSessionId = localStorage.getItem(`visitor_session_${qrCode}`);
     if (savedSessionId) {
-      setSessionId(savedSessionId);
       setShowRegistration(false);
     }
     return () => {
@@ -137,7 +135,6 @@ export default function VisitorHome() {
 
       if (response.data.success) {
         const newSessionId = response.data.visitor.sessionId;
-        setSessionId(newSessionId);
         localStorage.setItem(`visitor_session_${qrCode}`, newSessionId);
         setShowRegistration(false);
       }
