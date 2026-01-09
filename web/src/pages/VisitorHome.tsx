@@ -217,20 +217,27 @@ export default function VisitorHome() {
 
   const startCamera = async () => {
     try {
+      // First show camera UI so video element renders
+      setShowCamera(true);
+
+      // Get camera stream
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
         audio: false,
       });
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-
       streamRef.current = stream;
-      setShowCamera(true);
+
+      // Wait a tick for React to render the video element
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(console.error);
+        }
+      }, 100);
     } catch (err) {
       console.error("Camera error:", err);
+      setShowCamera(false);
       alert("Unable to access camera. Please check permissions.");
     }
   };
