@@ -18,7 +18,12 @@ import {
   Palette,
   ChevronLeft,
   X,
-  Languages
+  Languages,
+  Mail,
+  Phone,
+  UserCircle,
+  ArrowRight,
+  SkipForward
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -75,6 +80,14 @@ export default function VisitorHome() {
   const [error, setError] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState("en");
 
+  // Visitor registration states
+  const [showRegistration, setShowRegistration] = useState(true);
+  const [registering, setRegistering] = useState(false);
+  const [visitorName, setVisitorName] = useState("");
+  const [visitorPhone, setVisitorPhone] = useState("");
+  const [visitorEmail, setVisitorEmail] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
   // Camera states
   const [showCamera, setShowCamera] = useState(false);
   const [capturing, setCapturing] = useState(false);
@@ -100,10 +113,47 @@ export default function VisitorHome() {
 
   useEffect(() => {
     fetchMuseum();
+    // Check if visitor already registered (sessionId in localStorage)
+    const savedSessionId = localStorage.getItem(`visitor_session_${qrCode}`);
+    if (savedSessionId) {
+      setSessionId(savedSessionId);
+      setShowRegistration(false);
+    }
     return () => {
       stopCamera();
     };
   }, [qrCode]);
+
+  // Handle visitor registration
+  const handleRegister = async () => {
+    setRegistering(true);
+    try {
+      const response = await axios.post(`${API_BASE}/visit/${qrCode}/visitor`, {
+        name: visitorName.trim() || undefined,
+        phone: visitorPhone.trim() || undefined,
+        email: visitorEmail.trim() || undefined,
+        language: selectedLanguage
+      });
+
+      if (response.data.success) {
+        const newSessionId = response.data.visitor.sessionId;
+        setSessionId(newSessionId);
+        localStorage.setItem(`visitor_session_${qrCode}`, newSessionId);
+        setShowRegistration(false);
+      }
+    } catch (error) {
+      console.error("Registration failed:", error);
+      // Still allow access even if registration fails
+      setShowRegistration(false);
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  // Skip registration
+  const handleSkipRegistration = () => {
+    setShowRegistration(false);
+  };
 
   // Handle language change with on-demand translation
   const handleLanguageChange = async (langCode: string) => {
@@ -629,6 +679,223 @@ export default function VisitorHome() {
             Point camera at artwork and tap to identify
           </p>
         </div>
+      </div>
+    );
+  }
+
+  // Visitor Registration Form
+  if (showRegistration && museum) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
+          <div className="px-4 py-4">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-3"
+            >
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <span className="text-xl">{"🏛️"}</span>
+              </div>
+              <div>
+                <h1 className="font-display text-lg text-foreground">{museum.name}</h1>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {museum.location}
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </header>
+
+        <div className="p-4 space-y-6">
+          {/* Welcome message */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-6"
+          >
+            <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <UserCircle className="w-10 h-10 text-primary" />
+            </div>
+            <h2 className="font-display text-2xl text-foreground mb-2">Welcome!</h2>
+            <p className="text-muted-foreground text-sm max-w-xs mx-auto">
+              Tell us a bit about yourself to enhance your visit (optional)
+            </p>
+          </motion.div>
+
+          {/* Registration form */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="space-y-4"
+          >
+            {/* Name input */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <User className="w-4 h-4 text-muted-foreground" />
+                Name
+              </label>
+              <input
+                type="text"
+                value={visitorName}
+                onChange={(e) => setVisitorName(e.target.value)}
+                placeholder="Your name (optional)"
+                className="w-full px-4 py-3 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+              />
+            </div>
+
+            {/* Phone input */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Phone className="w-4 h-4 text-muted-foreground" />
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={visitorPhone}
+                onChange={(e) => setVisitorPhone(e.target.value)}
+                placeholder="Your phone number (optional)"
+                className="w-full px-4 py-3 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+              />
+            </div>
+
+            {/* Email input */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Mail className="w-4 h-4 text-muted-foreground" />
+                Email
+              </label>
+              <input
+                type="email"
+                value={visitorEmail}
+                onChange={(e) => setVisitorEmail(e.target.value)}
+                placeholder="Your email (optional)"
+                className="w-full px-4 py-3 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+              />
+            </div>
+
+            {/* Language selector */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Languages className="w-4 h-4 text-muted-foreground" />
+                Preferred Language
+              </label>
+              <button
+                onClick={() => setShowLanguageModal(true)}
+                className="w-full px-4 py-3 rounded-xl bg-card border border-border text-foreground flex items-center justify-between hover:bg-muted/50 transition-all"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="text-xl">{languages.find(l => l.code === selectedLanguage)?.flag}</span>
+                  {languages.find(l => l.code === selectedLanguage)?.name}
+                </span>
+                <Globe className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+          </motion.div>
+
+          {/* Action buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="space-y-3 pt-4"
+          >
+            <Button
+              variant="gold"
+              size="lg"
+              className="w-full gap-2"
+              onClick={handleRegister}
+              disabled={registering}
+            >
+              {registering ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  Continue
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full gap-2"
+              onClick={handleSkipRegistration}
+              disabled={registering}
+            >
+              <SkipForward className="w-5 h-5" />
+              Skip for now
+            </Button>
+          </motion.div>
+
+          {/* Privacy note */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-xs text-muted-foreground text-center"
+          >
+            Your information is only used to enhance your museum experience and is never shared.
+          </motion.p>
+        </div>
+
+        {/* Language Selection Modal */}
+        <AnimatePresence>
+          {showLanguageModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+              onClick={() => setShowLanguageModal(false)}
+            >
+              <motion.div
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 100, opacity: 0 }}
+                className="bg-card border border-border rounded-2xl w-full max-w-md max-h-[70vh] overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-4 border-b border-border flex items-center justify-between">
+                  <h3 className="font-display text-lg">Select Language</h3>
+                  <button
+                    onClick={() => setShowLanguageModal(false)}
+                    className="p-2 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-4 overflow-y-auto max-h-[50vh]">
+                  <div className="grid grid-cols-2 gap-2">
+                    {languages.map((lang) => (
+                      <button
+                        key={lang.code}
+                        onClick={() => {
+                          setSelectedLanguage(lang.code);
+                          setShowLanguageModal(false);
+                        }}
+                        className={cn(
+                          "flex items-center gap-3 p-3 rounded-xl transition-all text-left",
+                          selectedLanguage === lang.code
+                            ? "bg-primary/20 border-2 border-primary"
+                            : "bg-muted/30 border-2 border-transparent hover:bg-muted/50"
+                        )}
+                      >
+                        <span className="text-2xl">{lang.flag}</span>
+                        <span className="text-sm font-medium">{lang.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }

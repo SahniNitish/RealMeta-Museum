@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminUpload from './pages/AdminUpload'
 import AdminCollection from './pages/AdminCollection'
+import AdminQRCodes from './pages/AdminQRCodes'
 import AdminPlaceholder from './pages/AdminPlaceholder'
 import AdminLogin from './pages/AdminLogin'
 import AdminRegister from './pages/AdminRegister'
@@ -50,7 +51,7 @@ function App() {
             path="/admin/qr-codes"
             element={
               <ProtectedRoute>
-                <AdminPlaceholder title="QR Codes" description="Generate and manage museum QR codes" />
+                <AdminQRCodes />
               </ProtectedRoute>
             }
           />

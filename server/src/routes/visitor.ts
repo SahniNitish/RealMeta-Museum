@@ -2,8 +2,10 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
 import { Museum } from '../models/Museum';
 import { Artwork } from '../models/Artwork';
+import { Visitor } from '../models/Visitor';
 import { connectToDatabase } from '../utils/db';
 import { generateImageEmbedding, findBestMatches, isConfidentMatch } from '../services/clip';
 import Logger from '../utils/logger';
@@ -369,6 +371,156 @@ router.get('/languages', (_req: Request, res: Response) => {
   ];
 
   res.json({ success: true, languages });
+});
+
+// POST /api/visit/:qrCode/visitor - Save visitor info (optional)
+router.post('/:qrCode/visitor', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+
+    const { qrCode } = req.params;
+    const { name, phone, email, language = 'en' } = req.body;
+
+    // Find museum by QR code
+    const museum = await Museum.findOne({ qrCode: qrCode.toLowerCase() });
+
+    if (!museum) {
+      return res.status(404).json({ error: 'Museum not found' });
+    }
+
+    // Generate unique session ID for this visitor
+    const sessionId = uuidv4();
+
+    // Create visitor record
+    const visitor = await Visitor.create({
+      museumId: museum._id,
+      name: name?.trim() || undefined,
+      phone: phone?.trim() || undefined,
+      email: email?.trim()?.toLowerCase() || undefined,
+      language,
+      sessionId,
+      visitedAt: new Date(),
+      artworksViewed: []
+    });
+
+    Logger.info(`New visitor registered: ${visitor._id} for museum ${museum.name}`);
+
+    res.json({
+      success: true,
+      visitor: {
+        id: visitor._id,
+        sessionId: visitor.sessionId,
+        language: visitor.language
+      },
+      museum: {
+        id: museum._id,
+        name: museum.name
+      }
+    });
+  } catch (error: any) {
+    Logger.error(`Error saving visitor: ${error}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/visit/:qrCode/track/:artworkId - Track artwork viewed by visitor
+router.post('/:qrCode/track/:artworkId', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+
+    const { qrCode, artworkId } = req.params;
+    const { sessionId } = req.body;
+
+    // Find museum by QR code
+    const museum = await Museum.findOne({ qrCode: qrCode.toLowerCase() });
+
+    if (!museum) {
+      return res.status(404).json({ error: 'Museum not found' });
+    }
+
+    // Verify artwork exists and belongs to this museum
+    const artwork = await Artwork.findOne({ _id: artworkId, museumId: museum._id });
+
+    if (!artwork) {
+      return res.status(404).json({ error: 'Artwork not found in this museum' });
+    }
+
+    // If sessionId provided, update existing visitor record
+    if (sessionId) {
+      const visitor = await Visitor.findOne({ sessionId, museumId: museum._id });
+
+      if (visitor) {
+        // Add artwork to viewed list if not already there
+        if (!visitor.artworksViewed.includes(artwork._id)) {
+          visitor.artworksViewed.push(artwork._id);
+          await visitor.save();
+          Logger.info(`Tracked artwork view: visitor=${visitor._id}, artwork=${artwork.title}`);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      tracked: true,
+      artwork: {
+        id: artwork._id,
+        title: artwork.title
+      }
+    });
+  } catch (error: any) {
+    Logger.error(`Error tracking artwork view: ${error}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/visit/:qrCode/stats - Get visitor stats for a museum (for analytics)
+router.get('/:qrCode/stats', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+
+    const { qrCode } = req.params;
+
+    const museum = await Museum.findOne({ qrCode: qrCode.toLowerCase() });
+
+    if (!museum) {
+      return res.status(404).json({ error: 'Museum not found' });
+    }
+
+    // Get visitor count for today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayVisitors = await Visitor.countDocuments({
+      museumId: museum._id,
+      visitedAt: { $gte: today }
+    });
+
+    // Get total visitors
+    const totalVisitors = await Visitor.countDocuments({
+      museumId: museum._id
+    });
+
+    // Get this week's visitors
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    const weekVisitors = await Visitor.countDocuments({
+      museumId: museum._id,
+      visitedAt: { $gte: weekAgo }
+    });
+
+    res.json({
+      success: true,
+      stats: {
+        today: todayVisitors,
+        thisWeek: weekVisitors,
+        total: totalVisitors
+      }
+    });
+  } catch (error: any) {
+    Logger.error(`Error fetching visitor stats: ${error}`);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 export default router;
