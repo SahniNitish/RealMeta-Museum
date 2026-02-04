@@ -1,5 +1,33 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
+export interface AdditionalPhoto {
+  url: string;
+  caption?: string;
+  uploadedAt: Date;
+}
+
+export interface Video {
+  type: 'upload' | 'youtube' | 'vimeo';
+  url: string;
+  embedId?: string;
+  title?: string;
+  uploadedAt: Date;
+}
+
+export interface MusicTrack {
+  url: string;
+  title?: string;
+  artist?: string;
+  uploadedAt: Date;
+}
+
+export interface DocumentFile {
+  url: string;
+  title?: string;
+  description?: string;
+  uploadedAt: Date;
+}
+
 export interface ArtworkDocument extends Document {
   title: string;
   author?: string;
@@ -12,6 +40,10 @@ export interface ArtworkDocument extends Document {
   museumId?: mongoose.Types.ObjectId; // Link to museum
   imageEmbedding?: number[]; // CLIP embedding vector for image matching
   externalLinks?: { label: string; url: string }[]; // External resource links (Google Drive, etc.)
+  additionalPhotos?: AdditionalPhoto[];
+  videos?: Video[];
+  musicTracks?: MusicTrack[];
+  documents?: DocumentFile[];
   descriptions?: {
     en?: string;
     fr?: string;
@@ -59,6 +91,42 @@ const ArtworkSchema = new Schema<ArtworkDocument>(
       {
         label: String,
         url: String,
+        _id: false,
+      },
+    ],
+    additionalPhotos: [
+      {
+        url: String,
+        caption: String,
+        uploadedAt: { type: Date, default: Date.now },
+        _id: false,
+      },
+    ],
+    videos: [
+      {
+        type: { type: String, enum: ['upload', 'youtube', 'vimeo'] },
+        url: String,
+        embedId: String,
+        title: String,
+        uploadedAt: { type: Date, default: Date.now },
+        _id: false,
+      },
+    ],
+    musicTracks: [
+      {
+        url: String,
+        title: String,
+        artist: String,
+        uploadedAt: { type: Date, default: Date.now },
+        _id: false,
+      },
+    ],
+    documents: [
+      {
+        url: String,
+        title: String,
+        description: String,
+        uploadedAt: { type: Date, default: Date.now },
         _id: false,
       },
     ],

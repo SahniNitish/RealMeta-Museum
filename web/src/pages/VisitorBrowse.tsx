@@ -14,11 +14,40 @@ import {
   Pause,
   Volume2,
   Camera,
-  Globe
+  Globe,
+  Image,
+  Video,
+  Music,
+  FileText,
+  Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { API_HOST, API_BASE } from "@/lib/api";
+
+interface AdditionalPhoto {
+  url: string;
+  caption?: string;
+}
+
+interface VideoItem {
+  type: 'upload' | 'youtube' | 'vimeo';
+  url: string;
+  embedId?: string;
+  title?: string;
+}
+
+interface MusicTrack {
+  url: string;
+  title?: string;
+  artist?: string;
+}
+
+interface DocumentFile {
+  url: string;
+  title?: string;
+  description?: string;
+}
 
 interface Artwork {
   id: string;
@@ -29,6 +58,10 @@ interface Artwork {
   imageUrl: string;
   description: string;
   audioUrl?: string;
+  additionalPhotos?: AdditionalPhoto[];
+  videos?: VideoItem[];
+  musicTracks?: MusicTrack[];
+  documents?: DocumentFile[];
 }
 
 interface Museum {
@@ -71,6 +104,11 @@ export default function VisitorBrowse() {
   // Language modal and translation states
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [translating, setTranslating] = useState(false);
+
+  // Media display state
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [playingMusicIndex, setPlayingMusicIndex] = useState<number | null>(null);
+  const musicAudioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     fetchArtworks();
@@ -399,6 +437,151 @@ export default function VisitorBrowse() {
                     />
                   </div>
                 )}
+
+                {/* Additional Photos */}
+                {selectedArtwork.additionalPhotos && selectedArtwork.additionalPhotos.length > 0 && (
+                  <div className="p-4 rounded-xl bg-card border border-border">
+                    <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                      <Image className="w-4 h-4 text-primary" />
+                      More Photos ({selectedArtwork.additionalPhotos.length})
+                    </h3>
+                    <div className="grid grid-cols-4 gap-2">
+                      {selectedArtwork.additionalPhotos.map((photo, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setLightboxImage(`${API_HOST}${photo.url}`)}
+                          className="aspect-square rounded-lg overflow-hidden hover:ring-2 hover:ring-primary transition-all"
+                        >
+                          <img
+                            src={`${API_HOST}${photo.url}`}
+                            alt={photo.caption || `Photo ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Videos */}
+                {selectedArtwork.videos && selectedArtwork.videos.length > 0 && (
+                  <div className="p-4 rounded-xl bg-card border border-border">
+                    <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                      <Video className="w-4 h-4 text-primary" />
+                      Videos ({selectedArtwork.videos.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {selectedArtwork.videos.map((video, idx) => (
+                        <div key={idx} className="rounded-lg overflow-hidden bg-muted/30">
+                          {video.type === 'youtube' && video.embedId ? (
+                            <iframe
+                              src={`https://www.youtube.com/embed/${video.embedId}`}
+                              title={video.title || `Video ${idx + 1}`}
+                              className="w-full aspect-video"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          ) : video.type === 'vimeo' && video.embedId ? (
+                            <iframe
+                              src={`https://player.vimeo.com/video/${video.embedId}`}
+                              title={video.title || `Video ${idx + 1}`}
+                              className="w-full aspect-video"
+                              allow="autoplay; fullscreen; picture-in-picture"
+                              allowFullScreen
+                            />
+                          ) : (
+                            <video
+                              src={`${API_HOST}${video.url}`}
+                              controls
+                              className="w-full aspect-video"
+                            />
+                          )}
+                          {video.title && (
+                            <div className="p-2 border-t border-border">
+                              <p className="text-xs font-medium">{video.title}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Music Tracks */}
+                {selectedArtwork.musicTracks && selectedArtwork.musicTracks.length > 0 && (
+                  <div className="p-4 rounded-xl bg-card border border-border">
+                    <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                      <Music className="w-4 h-4 text-primary" />
+                      Music ({selectedArtwork.musicTracks.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {selectedArtwork.musicTracks.map((track, idx) => (
+                        <div key={idx} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                          <button
+                            onClick={() => {
+                              if (playingMusicIndex === idx) {
+                                musicAudioRef.current?.pause();
+                                setPlayingMusicIndex(null);
+                              } else {
+                                if (musicAudioRef.current) {
+                                  musicAudioRef.current.src = `${API_HOST}${track.url}`;
+                                  musicAudioRef.current.play();
+                                }
+                                setPlayingMusicIndex(idx);
+                              }
+                            }}
+                            className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center"
+                          >
+                            {playingMusicIndex === idx ? (
+                              <Pause className="w-3 h-3 text-primary" />
+                            ) : (
+                              <Play className="w-3 h-3 text-primary ml-0.5" />
+                            )}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{track.title || 'Untitled'}</p>
+                            {track.artist && <p className="text-xs text-muted-foreground">{track.artist}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <audio
+                      ref={musicAudioRef}
+                      onEnded={() => setPlayingMusicIndex(null)}
+                      className="hidden"
+                    />
+                  </div>
+                )}
+
+                {/* Documents */}
+                {selectedArtwork.documents && selectedArtwork.documents.length > 0 && (
+                  <div className="p-4 rounded-xl bg-card border border-border">
+                    <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-primary" />
+                      Documents ({selectedArtwork.documents.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {selectedArtwork.documents.map((doc, idx) => (
+                        <a
+                          key={idx}
+                          href={`${API_HOST}${doc.url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                            <FileText className="w-4 h-4 text-red-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{doc.title || 'Document'}</p>
+                            {doc.description && <p className="text-xs text-muted-foreground truncate">{doc.description}</p>}
+                          </div>
+                          <Download className="w-4 h-4 text-muted-foreground" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </motion.div>
 
               {/* Translating overlay in modal */}
@@ -471,6 +654,32 @@ export default function VisitorBrowse() {
                 </div>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Lightbox Modal */}
+      <AnimatePresence>
+        {lightboxImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-background/95 backdrop-blur-sm"
+            onClick={() => setLightboxImage(null)}
+          >
+            <button
+              onClick={() => setLightboxImage(null)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-muted hover:bg-muted/80 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={lightboxImage}
+              alt="Enlarged view"
+              className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
           </motion.div>
         )}
       </AnimatePresence>

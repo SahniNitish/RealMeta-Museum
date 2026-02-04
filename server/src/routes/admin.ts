@@ -35,6 +35,90 @@ const upload = multer({
   }
 });
 
+// File size limits (in bytes)
+const FILE_LIMITS = {
+  image: 10 * 1024 * 1024,    // 10MB
+  video: 100 * 1024 * 1024,   // 100MB
+  audio: 50 * 1024 * 1024,    // 50MB
+  document: 20 * 1024 * 1024, // 20MB
+};
+
+// Allowed MIME types
+const ALLOWED_TYPES = {
+  image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+  video: ['video/mp4', 'video/webm', 'video/quicktime'],
+  audio: ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3'],
+  document: ['application/pdf'],
+};
+
+// Multer configurations for different media types
+const imageUpload = multer({
+  storage,
+  limits: { fileSize: FILE_LIMITS.image },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_TYPES.image.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid image format. Allowed: JPEG, PNG, WebP, GIF'));
+    }
+  }
+});
+
+const videoUpload = multer({
+  storage,
+  limits: { fileSize: FILE_LIMITS.video },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_TYPES.video.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid video format. Allowed: MP4, WebM, MOV'));
+    }
+  }
+});
+
+const audioUpload = multer({
+  storage,
+  limits: { fileSize: FILE_LIMITS.audio },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_TYPES.audio.includes(file.mimetype) || file.originalname.endsWith('.mp3')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid audio format. Allowed: MP3, WAV, OGG'));
+    }
+  }
+});
+
+const documentUpload = multer({
+  storage,
+  limits: { fileSize: FILE_LIMITS.document },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_TYPES.document.includes(file.mimetype) || file.originalname.endsWith('.pdf')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid document format. Allowed: PDF'));
+    }
+  }
+});
+
+// Helper to extract YouTube video ID
+function extractYouTubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /youtube\.com\/shorts\/([^&\n?#]+)/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+// Helper to extract Vimeo video ID
+function extractVimeoId(url: string): string | null {
+  const match = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  return match ? match[1] : null;
+}
+
 // Upload an image and create a draft artwork record
 // OPTIMIZED: Run CLIP, AI, and Wikipedia in parallel. Translation/Audio deferred to finalize.
 router.post('/upload', upload.single('image'), async (req: Request, res: Response) => {
@@ -347,6 +431,274 @@ router.post('/test-huggingface', upload.single('image'), async (req: Request, re
   }
 });
 
+// ==================== MEDIA ENDPOINTS ====================
+
+// Upload additional photos (max 10)
+router.post('/:id/media/photos', imageUpload.array('photos', 10), async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+    const { id } = req.params;
+    const files = req.files as Express.Multer.File[];
+    const captions = req.body.captions ? JSON.parse(req.body.captions) : [];
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'No photos uploaded' });
+    }
+
+    const artwork = await Artwork.findById(id);
+    if (!artwork) return res.status(404).json({ error: 'Artwork not found' });
+
+    const currentPhotos = artwork.additionalPhotos || [];
+    if (currentPhotos.length + files.length > 10) {
+      return res.status(400).json({ error: 'Maximum 10 photos allowed' });
+    }
+
+    const newPhotos = files.map((file, index) => ({
+      url: `/uploads/${file.filename}`,
+      caption: captions[index] || '',
+      uploadedAt: new Date(),
+    }));
+
+    const updated = await Artwork.findByIdAndUpdate(
+      id,
+      { $push: { additionalPhotos: { $each: newPhotos } } },
+      { new: true }
+    );
+
+    Logger.info(`Added ${newPhotos.length} photos to artwork ${id}`);
+    res.json({ success: true, photos: updated?.additionalPhotos });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    Logger.error(`Photo upload error: ${message}`);
+    res.status(500).json({ error: message });
+  }
+});
+
+// Upload video file or add YouTube/Vimeo URL (max 5)
+router.post('/:id/media/videos', videoUpload.single('video'), async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+    const { id } = req.params;
+    const { videoUrl, title } = req.body;
+    const file = req.file;
+
+    const artwork = await Artwork.findById(id);
+    if (!artwork) return res.status(404).json({ error: 'Artwork not found' });
+
+    const currentVideos = artwork.videos || [];
+    if (currentVideos.length >= 5) {
+      return res.status(400).json({ error: 'Maximum 5 videos allowed' });
+    }
+
+    let newVideo;
+
+    if (file) {
+      // File upload
+      newVideo = {
+        type: 'upload' as const,
+        url: `/uploads/${file.filename}`,
+        title: title || file.originalname,
+        uploadedAt: new Date(),
+      };
+    } else if (videoUrl) {
+      // YouTube or Vimeo URL
+      const youtubeId = extractYouTubeId(videoUrl);
+      const vimeoId = extractVimeoId(videoUrl);
+
+      if (youtubeId) {
+        newVideo = {
+          type: 'youtube' as const,
+          url: videoUrl,
+          embedId: youtubeId,
+          title: title || 'YouTube Video',
+          uploadedAt: new Date(),
+        };
+      } else if (vimeoId) {
+        newVideo = {
+          type: 'vimeo' as const,
+          url: videoUrl,
+          embedId: vimeoId,
+          title: title || 'Vimeo Video',
+          uploadedAt: new Date(),
+        };
+      } else {
+        return res.status(400).json({ error: 'Invalid video URL. Must be YouTube or Vimeo.' });
+      }
+    } else {
+      return res.status(400).json({ error: 'Either video file or URL required' });
+    }
+
+    const updated = await Artwork.findByIdAndUpdate(
+      id,
+      { $push: { videos: newVideo } },
+      { new: true }
+    );
+
+    Logger.info(`Added video to artwork ${id}: ${newVideo.type}`);
+    res.json({ success: true, videos: updated?.videos });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    Logger.error(`Video upload error: ${message}`);
+    res.status(500).json({ error: message });
+  }
+});
+
+// Upload music/audio files (max 5)
+router.post('/:id/media/music', audioUpload.single('music'), async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+    const { id } = req.params;
+    const { title, artist } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'No audio file uploaded' });
+    }
+
+    const artwork = await Artwork.findById(id);
+    if (!artwork) return res.status(404).json({ error: 'Artwork not found' });
+
+    const currentTracks = artwork.musicTracks || [];
+    if (currentTracks.length >= 5) {
+      return res.status(400).json({ error: 'Maximum 5 music tracks allowed' });
+    }
+
+    const newTrack = {
+      url: `/uploads/${file.filename}`,
+      title: title || file.originalname,
+      artist: artist || '',
+      uploadedAt: new Date(),
+    };
+
+    const updated = await Artwork.findByIdAndUpdate(
+      id,
+      { $push: { musicTracks: newTrack } },
+      { new: true }
+    );
+
+    Logger.info(`Added music track to artwork ${id}: ${newTrack.title}`);
+    res.json({ success: true, musicTracks: updated?.musicTracks });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    Logger.error(`Music upload error: ${message}`);
+    res.status(500).json({ error: message });
+  }
+});
+
+// Upload PDF documents (max 5)
+router.post('/:id/media/documents', documentUpload.single('document'), async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+    const { id } = req.params;
+    const { title, description } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'No document uploaded' });
+    }
+
+    const artwork = await Artwork.findById(id);
+    if (!artwork) return res.status(404).json({ error: 'Artwork not found' });
+
+    const currentDocs = artwork.documents || [];
+    if (currentDocs.length >= 5) {
+      return res.status(400).json({ error: 'Maximum 5 documents allowed' });
+    }
+
+    const newDoc = {
+      url: `/uploads/${file.filename}`,
+      title: title || file.originalname,
+      description: description || '',
+      uploadedAt: new Date(),
+    };
+
+    const updated = await Artwork.findByIdAndUpdate(
+      id,
+      { $push: { documents: newDoc } },
+      { new: true }
+    );
+
+    Logger.info(`Added document to artwork ${id}: ${newDoc.title}`);
+    res.json({ success: true, documents: updated?.documents });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    Logger.error(`Document upload error: ${message}`);
+    res.status(500).json({ error: message });
+  }
+});
+
+// Delete media item by type and index
+router.delete('/:id/media/:type/:index', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+    const { id, type, index } = req.params;
+    const idx = parseInt(index, 10);
+
+    if (isNaN(idx) || idx < 0) {
+      return res.status(400).json({ error: 'Invalid index' });
+    }
+
+    const validTypes = ['photos', 'videos', 'music', 'documents'];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ error: 'Invalid media type' });
+    }
+
+    const artwork = await Artwork.findById(id);
+    if (!artwork) return res.status(404).json({ error: 'Artwork not found' });
+
+    // Map type to field name
+    const fieldMap: Record<string, 'additionalPhotos' | 'videos' | 'musicTracks' | 'documents'> = {
+      photos: 'additionalPhotos',
+      videos: 'videos',
+      music: 'musicTracks',
+      documents: 'documents',
+    };
+    const fieldName = fieldMap[type];
+    const items = artwork[fieldName];
+
+    if (!items || idx >= items.length) {
+      return res.status(404).json({ error: 'Media item not found' });
+    }
+
+    // Get the URL for file deletion
+    const item = items[idx];
+    const fileUrl = item?.url;
+
+    // Remove item from array using $unset and $pull
+    const unsetUpdate: Record<string, unknown> = {};
+    unsetUpdate[`${fieldName}.${idx}`] = 1;
+    await Artwork.findByIdAndUpdate(id, { $unset: unsetUpdate });
+
+    const pullUpdate: Record<string, unknown> = {};
+    pullUpdate[fieldName] = null;
+    const updated = await Artwork.findByIdAndUpdate(
+      id,
+      { $pull: pullUpdate },
+      { new: true }
+    );
+
+    // Delete the file if it's a local upload
+    if (fileUrl && fileUrl.startsWith('/uploads/')) {
+      const filePath = path.join(__dirname, '..', '..', fileUrl.replace(/^\//, ''));
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          Logger.info(`Deleted file: ${filePath}`);
+        }
+      } catch (fileErr) {
+        Logger.warn(`Failed to delete file: ${filePath}`);
+      }
+    }
+
+    Logger.info(`Deleted ${type} at index ${idx} from artwork ${id}`);
+    res.json({ success: true, [fieldName]: updated?.[fieldName] });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    Logger.error(`Media delete error: ${message}`);
+    res.status(500).json({ error: message });
+  }
+});
+
 // Delete an artwork and its associated files
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
@@ -362,6 +714,30 @@ router.delete('/:id', async (req: Request, res: Response) => {
     if (doc.audioUrls) {
       for (const url of Object.values(doc.audioUrls)) {
         if (url) files.push(path.join(__dirname, '..', '..', url.replace(/^\//, '')));
+      }
+    }
+
+    // Collect media files
+    if (doc.additionalPhotos) {
+      for (const photo of doc.additionalPhotos) {
+        if (photo.url) files.push(path.join(__dirname, '..', '..', photo.url.replace(/^\//, '')));
+      }
+    }
+    if (doc.videos) {
+      for (const video of doc.videos) {
+        if (video.type === 'upload' && video.url) {
+          files.push(path.join(__dirname, '..', '..', video.url.replace(/^\//, '')));
+        }
+      }
+    }
+    if (doc.musicTracks) {
+      for (const track of doc.musicTracks) {
+        if (track.url) files.push(path.join(__dirname, '..', '..', track.url.replace(/^\//, '')));
+      }
+    }
+    if (doc.documents) {
+      for (const docItem of doc.documents) {
+        if (docItem.url) files.push(path.join(__dirname, '..', '..', docItem.url.replace(/^\//, '')));
       }
     }
 

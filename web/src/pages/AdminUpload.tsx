@@ -7,7 +7,7 @@ import { AnalyzingOverlay } from "@/components/admin/AnalyzingOverlay";
 import { SavingOverlay } from "@/components/admin/SavingOverlay";
 import { ArtworkInfoCard } from "@/components/admin/ArtworkInfoCard";
 import { Button } from "@/components/ui/button";
-import { Sparkles, RotateCcw, AlertCircle, X, Check } from "lucide-react";
+import { Sparkles, RotateCcw, AlertCircle, X, Check, Image, Video, Music, FileText, Upload, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { API_HOST, API_BASE } from "@/lib/api";
 
@@ -33,6 +33,17 @@ export default function AdminUpload() {
     externalLinks: [] as { label: string; url: string }[]
   });
   const [newLink, setNewLink] = useState({ label: "", url: "" });
+
+  // Media upload state
+  const [mediaExpanded, setMediaExpanded] = useState(false);
+  const [mediaTab, setMediaTab] = useState<'photos' | 'videos' | 'music' | 'documents'>('photos');
+  const [mediaUploading, setMediaUploading] = useState(false);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoTitle, setVideoTitle] = useState("");
+  const [musicTitle, setMusicTitle] = useState("");
+  const [musicArtist, setMusicArtist] = useState("");
+  const [docTitle, setDocTitle] = useState("");
+  const [docDescription, setDocDescription] = useState("");
 
   // Save state
   const [isSaving, setIsSaving] = useState(false);
@@ -176,6 +187,135 @@ export default function AdminUpload() {
       ...editForm
     });
     setIsEditing(false);
+  };
+
+  // Media upload handlers
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!artworkInfo?.id || !e.target.files?.length) return;
+    setMediaUploading(true);
+    try {
+      const formData = new FormData();
+      Array.from(e.target.files).forEach(file => formData.append('photos', file));
+      const response = await axios.post(
+        `${API_BASE}/admin/${artworkInfo.id}/media/photos`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data", ...(token && { Authorization: `Bearer ${token}` }) } }
+      );
+      setArtworkInfo({ ...artworkInfo, additionalPhotos: response.data.photos });
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to upload photos');
+    } finally {
+      setMediaUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleVideoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!artworkInfo?.id || !e.target.files?.[0]) return;
+    setMediaUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('video', e.target.files[0]);
+      formData.append('title', videoTitle || e.target.files[0].name);
+      const response = await axios.post(
+        `${API_BASE}/admin/${artworkInfo.id}/media/videos`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data", ...(token && { Authorization: `Bearer ${token}` }) } }
+      );
+      setArtworkInfo({ ...artworkInfo, videos: response.data.videos });
+      setVideoTitle('');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to upload video');
+    } finally {
+      setMediaUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleVideoUrlAdd = async () => {
+    if (!artworkInfo?.id || !videoUrl) return;
+    setMediaUploading(true);
+    try {
+      const response = await axios.post(
+        `${API_BASE}/admin/${artworkInfo.id}/media/videos`,
+        { videoUrl, title: videoTitle },
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+      setArtworkInfo({ ...artworkInfo, videos: response.data.videos });
+      setVideoUrl('');
+      setVideoTitle('');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to add video');
+    } finally {
+      setMediaUploading(false);
+    }
+  };
+
+  const handleMusicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!artworkInfo?.id || !e.target.files?.[0]) return;
+    setMediaUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('music', e.target.files[0]);
+      formData.append('title', musicTitle || e.target.files[0].name);
+      formData.append('artist', musicArtist);
+      const response = await axios.post(
+        `${API_BASE}/admin/${artworkInfo.id}/media/music`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data", ...(token && { Authorization: `Bearer ${token}` }) } }
+      );
+      setArtworkInfo({ ...artworkInfo, musicTracks: response.data.musicTracks });
+      setMusicTitle('');
+      setMusicArtist('');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to upload music');
+    } finally {
+      setMediaUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!artworkInfo?.id || !e.target.files?.[0]) return;
+    setMediaUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('document', e.target.files[0]);
+      formData.append('title', docTitle || e.target.files[0].name);
+      formData.append('description', docDescription);
+      const response = await axios.post(
+        `${API_BASE}/admin/${artworkInfo.id}/media/documents`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data", ...(token && { Authorization: `Bearer ${token}` }) } }
+      );
+      setArtworkInfo({ ...artworkInfo, documents: response.data.documents });
+      setDocTitle('');
+      setDocDescription('');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to upload document');
+    } finally {
+      setMediaUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteMedia = async (type: string, index: number) => {
+    if (!artworkInfo?.id) return;
+    try {
+      const response = await axios.delete(
+        `${API_BASE}/admin/${artworkInfo.id}/media/${type}/${index}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+      const fieldMap: Record<string, string> = {
+        photos: 'additionalPhotos',
+        videos: 'videos',
+        music: 'musicTracks',
+        documents: 'documents'
+      };
+      setArtworkInfo({ ...artworkInfo, [fieldMap[type]]: response.data[fieldMap[type]] });
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to delete media');
+    }
   };
 
   const handleSave = async () => {
@@ -517,6 +657,267 @@ export default function AdminUpload() {
                   )}
                   <p className="text-xs text-muted-foreground mt-2">Add external resource links like Google Drive, high-resolution images, or documents</p>
                 </div>
+
+                {/* Additional Media Section */}
+                {artworkInfo?.id && (
+                  <div className="border border-border rounded-xl overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setMediaExpanded(!mediaExpanded)}
+                      className="w-full px-4 py-3 flex items-center justify-between bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <span className="font-medium text-foreground">Additional Media</span>
+                      {mediaExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    </button>
+
+                    {mediaExpanded && (
+                      <div className="p-4 space-y-4">
+                        {/* Media Tabs */}
+                        <div className="flex gap-2 border-b border-border pb-2">
+                          {[
+                            { id: 'photos' as const, label: 'Photos', icon: Image },
+                            { id: 'videos' as const, label: 'Videos', icon: Video },
+                            { id: 'music' as const, label: 'Music', icon: Music },
+                            { id: 'documents' as const, label: 'Documents', icon: FileText },
+                          ].map(tab => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setMediaTab(tab.id)}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                                mediaTab === tab.id
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'hover:bg-muted'
+                              }`}
+                            >
+                              <tab.icon className="w-4 h-4" />
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Photos Tab */}
+                        {mediaTab === 'photos' && (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <label className="flex-1 cursor-pointer">
+                                <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors">
+                                  <Upload className="w-4 h-4" />
+                                  <span className="text-sm">Upload Photos (max 10)</span>
+                                </div>
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp,image/gif"
+                                  multiple
+                                  onChange={handlePhotoUpload}
+                                  className="hidden"
+                                  disabled={mediaUploading}
+                                />
+                              </label>
+                            </div>
+                            {artworkInfo?.additionalPhotos?.length > 0 && (
+                              <div className="grid grid-cols-4 gap-2">
+                                {artworkInfo.additionalPhotos.map((photo: { url: string; caption?: string }, idx: number) => (
+                                  <div key={idx} className="relative group">
+                                    <img
+                                      src={`${API_HOST}${photo.url}`}
+                                      alt={photo.caption || `Photo ${idx + 1}`}
+                                      className="w-full h-20 object-cover rounded-lg"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteMedia('photos', idx)}
+                                      className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Videos Tab */}
+                        {mediaTab === 'videos' && (
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                placeholder="Video title (optional)"
+                                value={videoTitle}
+                                onChange={e => setVideoTitle(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm"
+                              />
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="YouTube or Vimeo URL"
+                                  value={videoUrl}
+                                  onChange={e => setVideoUrl(e.target.value)}
+                                  className="flex-1 px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleVideoUrlAdd}
+                                  disabled={!videoUrl || mediaUploading}
+                                >
+                                  Add URL
+                                </Button>
+                              </div>
+                              <div className="text-center text-sm text-muted-foreground">or</div>
+                              <label className="cursor-pointer">
+                                <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors">
+                                  <Upload className="w-4 h-4" />
+                                  <span className="text-sm">Upload Video File (MP4, WebM, MOV - max 100MB)</span>
+                                </div>
+                                <input
+                                  type="file"
+                                  accept="video/mp4,video/webm,video/quicktime"
+                                  onChange={handleVideoFileUpload}
+                                  className="hidden"
+                                  disabled={mediaUploading}
+                                />
+                              </label>
+                            </div>
+                            {artworkInfo?.videos?.length > 0 && (
+                              <div className="space-y-2">
+                                {artworkInfo.videos.map((video: { type: string; url: string; embedId?: string; title?: string }, idx: number) => (
+                                  <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border">
+                                    <Video className="w-4 h-4 text-muted-foreground" />
+                                    <span className="flex-1 text-sm truncate">{video.title || video.url}</span>
+                                    <span className="text-xs text-muted-foreground capitalize">{video.type}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteMedia('videos', idx)}
+                                      className="p-1 text-destructive hover:bg-destructive/20 rounded transition-colors"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Music Tab */}
+                        {mediaTab === 'music' && (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="text"
+                                placeholder="Track title"
+                                value={musicTitle}
+                                onChange={e => setMusicTitle(e.target.value)}
+                                className="px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Artist (optional)"
+                                value={musicArtist}
+                                onChange={e => setMusicArtist(e.target.value)}
+                                className="px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm"
+                              />
+                            </div>
+                            <label className="cursor-pointer">
+                              <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors">
+                                <Upload className="w-4 h-4" />
+                                <span className="text-sm">Upload Audio (MP3, WAV, OGG - max 50MB)</span>
+                              </div>
+                              <input
+                                type="file"
+                                accept="audio/mpeg,audio/wav,audio/ogg,audio/mp3"
+                                onChange={handleMusicUpload}
+                                className="hidden"
+                                disabled={mediaUploading}
+                              />
+                            </label>
+                            {artworkInfo?.musicTracks?.length > 0 && (
+                              <div className="space-y-2">
+                                {artworkInfo.musicTracks.map((track: { url: string; title?: string; artist?: string }, idx: number) => (
+                                  <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border">
+                                    <Music className="w-4 h-4 text-muted-foreground" />
+                                    <span className="flex-1 text-sm truncate">{track.title || 'Untitled'}</span>
+                                    {track.artist && <span className="text-xs text-muted-foreground">{track.artist}</span>}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteMedia('music', idx)}
+                                      className="p-1 text-destructive hover:bg-destructive/20 rounded transition-colors"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Documents Tab */}
+                        {mediaTab === 'documents' && (
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <input
+                                type="text"
+                                placeholder="Document title"
+                                value={docTitle}
+                                onChange={e => setDocTitle(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Description (optional)"
+                                value={docDescription}
+                                onChange={e => setDocDescription(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm"
+                              />
+                            </div>
+                            <label className="cursor-pointer">
+                              <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors">
+                                <Upload className="w-4 h-4" />
+                                <span className="text-sm">Upload PDF (max 20MB)</span>
+                              </div>
+                              <input
+                                type="file"
+                                accept="application/pdf"
+                                onChange={handleDocumentUpload}
+                                className="hidden"
+                                disabled={mediaUploading}
+                              />
+                            </label>
+                            {artworkInfo?.documents?.length > 0 && (
+                              <div className="space-y-2">
+                                {artworkInfo.documents.map((doc: { url: string; title?: string; description?: string }, idx: number) => (
+                                  <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 border border-border">
+                                    <FileText className="w-4 h-4 text-muted-foreground" />
+                                    <span className="flex-1 text-sm truncate">{doc.title || 'Untitled'}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteMedia('documents', idx)}
+                                      className="p-1 text-destructive hover:bg-destructive/20 rounded transition-colors"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {mediaUploading && (
+                          <div className="flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground">
+                            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            Uploading...
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-4 mt-6">

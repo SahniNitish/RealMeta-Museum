@@ -12,11 +12,40 @@ import {
   Check,
   ChevronDown,
   ExternalLink,
-  Loader2
+  Loader2,
+  Image,
+  Video,
+  Music,
+  Download,
+  X
 } from "lucide-react";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+interface AdditionalPhoto {
+  url: string;
+  caption?: string;
+}
+
+interface VideoItem {
+  type: 'upload' | 'youtube' | 'vimeo';
+  url: string;
+  embedId?: string;
+  title?: string;
+}
+
+interface MusicTrack {
+  url: string;
+  title?: string;
+  artist?: string;
+}
+
+interface DocumentFile {
+  url: string;
+  title?: string;
+  description?: string;
+}
 
 interface ArtworkInfo {
   id: string;
@@ -37,6 +66,10 @@ interface ArtworkInfo {
   };
   sources?: Array<{ provider: string; url: string }>;
   externalLinks?: Array<{ label: string; url: string }>;
+  additionalPhotos?: AdditionalPhoto[];
+  videos?: VideoItem[];
+  musicTracks?: MusicTrack[];
+  documents?: DocumentFile[];
 }
 
 interface ArtworkInfoCardProps {
@@ -75,6 +108,11 @@ export const ArtworkInfoCard = ({ info, imageUrl, apiHost, onSave, onEdit, isSav
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAllLanguages, setShowAllLanguages] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Media display state
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [playingMusicIndex, setPlayingMusicIndex] = useState<number | null>(null);
+  const musicAudioRef = useRef<HTMLAudioElement>(null);
 
   const currentDescription = info.descriptions?.[selectedLanguage as keyof typeof info.descriptions] || info.description;
   const currentAudioUrl = info.audioUrls?.[selectedLanguage as keyof typeof info.audioUrls];
@@ -226,11 +264,185 @@ export const ArtworkInfoCard = ({ info, imageUrl, apiHost, onSave, onEdit, isSav
           </motion.div>
         )}
 
+        {/* Additional Photos Gallery */}
+        {info.additionalPhotos && info.additionalPhotos.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="p-6 rounded-2xl bg-card border border-border"
+          >
+            <h3 className="font-display text-lg text-foreground mb-4 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Image className="w-4 h-4 text-primary" />
+              </div>
+              Additional Photos ({info.additionalPhotos.length})
+            </h3>
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+              {info.additionalPhotos.map((photo, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setLightboxImage(`${apiHost}${photo.url}`)}
+                  className="relative aspect-square rounded-lg overflow-hidden hover:ring-2 hover:ring-primary transition-all"
+                >
+                  <img
+                    src={`${apiHost}${photo.url}`}
+                    alt={photo.caption || `Photo ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Videos Section */}
+        {info.videos && info.videos.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.55 }}
+            className="p-6 rounded-2xl bg-card border border-border"
+          >
+            <h3 className="font-display text-lg text-foreground mb-4 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Video className="w-4 h-4 text-primary" />
+              </div>
+              Videos ({info.videos.length})
+            </h3>
+            <div className="space-y-4">
+              {info.videos.map((video, idx) => (
+                <div key={idx} className="rounded-xl overflow-hidden bg-muted/30">
+                  {video.type === 'youtube' && video.embedId ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${video.embedId}`}
+                      title={video.title || `Video ${idx + 1}`}
+                      className="w-full aspect-video"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : video.type === 'vimeo' && video.embedId ? (
+                    <iframe
+                      src={`https://player.vimeo.com/video/${video.embedId}`}
+                      title={video.title || `Video ${idx + 1}`}
+                      className="w-full aspect-video"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video
+                      src={`${apiHost}${video.url}`}
+                      controls
+                      className="w-full aspect-video"
+                    />
+                  )}
+                  {video.title && (
+                    <div className="p-3 border-t border-border">
+                      <p className="text-sm font-medium">{video.title}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Music Tracks Section */}
+        {info.musicTracks && info.musicTracks.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="p-6 rounded-2xl bg-card border border-border"
+          >
+            <h3 className="font-display text-lg text-foreground mb-4 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Music className="w-4 h-4 text-primary" />
+              </div>
+              Music ({info.musicTracks.length})
+            </h3>
+            <div className="space-y-2">
+              {info.musicTracks.map((track, idx) => (
+                <div key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
+                  <button
+                    onClick={() => {
+                      if (playingMusicIndex === idx) {
+                        musicAudioRef.current?.pause();
+                        setPlayingMusicIndex(null);
+                      } else {
+                        if (musicAudioRef.current) {
+                          musicAudioRef.current.src = `${apiHost}${track.url}`;
+                          musicAudioRef.current.play();
+                        }
+                        setPlayingMusicIndex(idx);
+                      }
+                    }}
+                    className="w-10 h-10 rounded-full bg-primary/20 hover:bg-primary/30 flex items-center justify-center transition-colors"
+                  >
+                    {playingMusicIndex === idx ? (
+                      <Pause className="w-4 h-4 text-primary" />
+                    ) : (
+                      <Play className="w-4 h-4 text-primary ml-0.5" />
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{track.title || 'Untitled Track'}</p>
+                    {track.artist && <p className="text-xs text-muted-foreground">{track.artist}</p>}
+                  </div>
+                  <Volume2 className="w-4 h-4 text-muted-foreground" />
+                </div>
+              ))}
+            </div>
+            <audio
+              ref={musicAudioRef}
+              onEnded={() => setPlayingMusicIndex(null)}
+              className="hidden"
+            />
+          </motion.div>
+        )}
+
+        {/* Documents Section */}
+        {info.documents && info.documents.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.65 }}
+            className="p-6 rounded-2xl bg-card border border-border"
+          >
+            <h3 className="font-display text-lg text-foreground mb-4 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <FileText className="w-4 h-4 text-primary" />
+              </div>
+              Documents ({info.documents.length})
+            </h3>
+            <div className="space-y-2">
+              {info.documents.map((doc, idx) => (
+                <a
+                  key={idx}
+                  href={`${apiHost}${doc.url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors group"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-red-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{doc.title || 'Document'}</p>
+                    {doc.description && <p className="text-xs text-muted-foreground truncate">{doc.description}</p>}
+                  </div>
+                  <Download className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </a>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         {/* Languages & Audio Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
+          transition={{ delay: 0.7 }}
           className="p-6 rounded-2xl bg-gradient-to-br from-card to-surface-elevated border border-border"
         >
           <div className="flex items-center justify-between mb-4">
@@ -318,7 +530,7 @@ export const ArtworkInfoCard = ({ info, imageUrl, apiHost, onSave, onEdit, isSav
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
+          transition={{ delay: 0.8 }}
           className="flex items-center gap-4"
         >
           <Button variant="gold" size="lg" className="flex-1" onClick={onSave} disabled={isSaving}>
@@ -333,6 +545,30 @@ export const ArtworkInfoCard = ({ info, imageUrl, apiHost, onSave, onEdit, isSav
           </Button>
         </motion.div>
       </div>
+
+      {/* Lightbox Modal */}
+      {lightboxImage && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-muted hover:bg-muted/80 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={lightboxImage}
+            alt="Enlarged view"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </motion.div>
+      )}
     </motion.div>
   );
 };
