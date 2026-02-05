@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { API_HOST, API_BASE } from "@/lib/api";
+import { API_BASE, getMediaUrl } from "@/lib/api";
 
 interface Artwork {
   _id: string;
@@ -269,7 +269,7 @@ export default function AdminCollection() {
                   {/* Image */}
                   <div className="aspect-[4/3] overflow-hidden">
                     <img
-                      src={`${API_HOST}${artwork.imageUrl}`}
+                      src={getMediaUrl(artwork.imageUrl)}
                       alt={artwork.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
@@ -355,7 +355,7 @@ export default function AdminCollection() {
                   <div className="space-y-4">
                     <div className="rounded-xl overflow-hidden border border-border">
                       <img
-                        src={`${API_HOST}${viewingArtwork.imageUrl}`}
+                        src={getMediaUrl(viewingArtwork.imageUrl)}
                         alt={viewingArtwork.title}
                         className="w-full aspect-[4/3] object-cover"
                       />
@@ -443,7 +443,7 @@ export default function AdminCollection() {
                         <Volume2 className="w-5 h-5 text-muted-foreground" />
                         <audio
                           ref={audioRef}
-                          src={`${API_HOST}${getCurrentAudioUrl()}`}
+                          src={getMediaUrl(getCurrentAudioUrl())}
                           onEnded={() => setIsPlaying(false)}
                         />
                       </div>

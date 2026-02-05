@@ -539,9 +539,9 @@ export default function AdminUpload() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-2xl mx-4 p-6 rounded-2xl bg-card border border-border shadow-2xl"
+              className="w-full max-w-2xl mx-4 rounded-2xl bg-card border border-border shadow-2xl max-h-[90vh] flex flex-col"
             >
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between p-6 pb-4 border-b border-border shrink-0">
                 <h2 className="font-display text-2xl text-foreground">Edit Artwork Information</h2>
                 <button
                   onClick={() => setIsEditing(false)}
@@ -551,7 +551,7 @@ export default function AdminUpload() {
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="flex-1 overflow-y-auto p-6 pt-4 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1">Title</label>
                   <input
@@ -920,7 +920,7 @@ export default function AdminUpload() {
                 )}
               </div>
 
-              <div className="flex items-center gap-4 mt-6">
+              <div className="flex items-center gap-4 p-6 pt-4 border-t border-border shrink-0">
                 <Button variant="outline" className="flex-1" onClick={() => setIsEditing(false)}>
                   Cancel
                 </Button>
