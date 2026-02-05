@@ -205,7 +205,11 @@ router.post('/:qrCode/identify', visitorUpload.single('photo'), async (req: Requ
 
   } catch (error: any) {
     Logger.error(`Error identifying artwork: ${error}`);
-    res.status(500).json({ error: error.message });
+    Logger.error(`Stack trace: ${error.stack}`);
+    res.status(500).json({
+      error: error.message || 'Internal Server Error',
+      details: error.stack?.split('\n').slice(0, 3).join(' | ') || 'No stack trace'
+    });
   } finally {
     // Clean up temporary file
     if (tempFilePath && fs.existsSync(tempFilePath)) {
