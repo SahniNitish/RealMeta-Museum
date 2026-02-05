@@ -48,7 +48,11 @@ const getS3Region = () => getS3Config().region;
  * Get the public URL for an S3 object
  */
 export function getS3Url(key: string): string {
-  return `https://${getS3Bucket()}.s3.${getS3Region()}.amazonaws.com/${key}`;
+  const bucket = getS3Bucket();
+  const region = getS3Region();
+  const url = `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+  Logger.info(`Generated S3 URL - bucket: "${bucket}", region: "${region}", key: "${key}", url: "${url}"`);
+  return url;
 }
 
 /**
