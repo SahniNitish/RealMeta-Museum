@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getMediaUrl } from '@/lib/api';
 
 interface Museum {
   id: string;
@@ -22,6 +23,10 @@ interface MatchedArtwork {
   audioUrl?: string;
   matchScore: number;
   sources?: Array<{ provider: string; url: string }>;
+  additionalPhotos?: Array<{ url: string; caption?: string }>;
+  videos?: Array<{ type: 'upload' | 'youtube' | 'vimeo'; url: string; embedId?: string; title?: string }>;
+  musicTracks?: Array<{ url: string; title?: string; artist?: string }>;
+  documents?: Array<{ url: string; title?: string; description?: string }>;
 }
 
 const VisitorScan: React.FC = () => {
@@ -46,6 +51,8 @@ const VisitorScan: React.FC = () => {
     confident: boolean;
     bestMatch: MatchedArtwork | null;
     alternatives: MatchedArtwork[];
+    noMatch?: boolean;
+    message?: string;
   } | null>(null);
 
   // Use centralized API config - supports both dev and production
@@ -201,6 +208,34 @@ const VisitorScan: React.FC = () => {
 
   // Show match results
   if (matchResult) {
+    // Handle "no artwork found" case
+    if (matchResult.noMatch) {
+      return (
+        <div className="visitor-scan">
+          <div className="match-results">
+            <h2>❓ No Artwork Found</h2>
+            <div className="no-match-info" style={{ textAlign: 'center', padding: '2rem' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🖼️</div>
+              <p style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: '#666' }}>
+                {matchResult.message || 'Could not identify an artwork in this photo.'}
+              </p>
+              <p style={{ fontSize: '0.9rem', color: '#888', marginBottom: '2rem' }}>
+                Tips: Make sure to point your camera directly at a painting or artwork in the museum.
+              </p>
+            </div>
+            <div className="match-actions">
+              <button onClick={handleTryAgain} className="btn-primary">
+                📸 Try Again
+              </button>
+              <button onClick={() => navigate(`/visit/${qrCode}/browse`)} className="btn-secondary">
+                📚 Browse Collection
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="visitor-scan">
         <div className="match-results">
@@ -217,7 +252,7 @@ const VisitorScan: React.FC = () => {
               </div>
 
               <img
-                src={`${API_HOST}${matchResult.bestMatch.imageUrl}`}
+                src={getMediaUrl(matchResult.bestMatch.imageUrl)}
                 alt={matchResult.bestMatch.title}
                 className="artwork-image"
               />
@@ -238,7 +273,7 @@ const VisitorScan: React.FC = () => {
                   <div className="audio-player">
                     <h4>🎧 Audio Guide</h4>
                     <audio controls style={{ width: '100%' }}>
-                      <source src={`${API_HOST}${matchResult.bestMatch.audioUrl}`} type="audio/mpeg" />
+                      <source src={getMediaUrl(matchResult.bestMatch.audioUrl)} type="audio/mpeg" />
                     </audio>
                   </div>
                 )}
@@ -259,6 +294,101 @@ const VisitorScan: React.FC = () => {
                     ))}
                   </div>
                 )}
+
+                {/* Additional Photos */}
+                {matchResult.bestMatch.additionalPhotos && matchResult.bestMatch.additionalPhotos.length > 0 && (
+                  <div className="additional-media" style={{ marginTop: '1rem' }}>
+                    <h4>🖼️ More Photos</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                      {matchResult.bestMatch.additionalPhotos.map((photo, idx) => (
+                        <img
+                          key={idx}
+                          src={getMediaUrl(photo.url)}
+                          alt={photo.caption || `Photo ${idx + 1}`}
+                          style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '8px' }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Videos */}
+                {matchResult.bestMatch.videos && matchResult.bestMatch.videos.length > 0 && (
+                  <div className="additional-media" style={{ marginTop: '1rem' }}>
+                    <h4>🎬 Videos</h4>
+                    {matchResult.bestMatch.videos.map((video, idx) => (
+                      <div key={idx} style={{ marginBottom: '0.5rem' }}>
+                        {video.type === 'youtube' && video.embedId ? (
+                          <iframe
+                            src={`https://www.youtube.com/embed/${video.embedId}`}
+                            title={video.title || `Video ${idx + 1}`}
+                            style={{ width: '100%', aspectRatio: '16/9', border: 'none', borderRadius: '8px' }}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        ) : video.type === 'vimeo' && video.embedId ? (
+                          <iframe
+                            src={`https://player.vimeo.com/video/${video.embedId}`}
+                            title={video.title || `Video ${idx + 1}`}
+                            style={{ width: '100%', aspectRatio: '16/9', border: 'none', borderRadius: '8px' }}
+                            allow="autoplay; fullscreen; picture-in-picture"
+                            allowFullScreen
+                          />
+                        ) : (
+                          <video
+                            src={getMediaUrl(video.url)}
+                            controls
+                            style={{ width: '100%', borderRadius: '8px' }}
+                          />
+                        )}
+                        {video.title && <p style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>{video.title}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Music Tracks */}
+                {matchResult.bestMatch.musicTracks && matchResult.bestMatch.musicTracks.length > 0 && (
+                  <div className="additional-media" style={{ marginTop: '1rem' }}>
+                    <h4>🎵 Music</h4>
+                    {matchResult.bestMatch.musicTracks.map((track, idx) => (
+                      <div key={idx} style={{ marginBottom: '0.5rem', padding: '0.5rem', background: '#f5f5f5', borderRadius: '8px' }}>
+                        <p style={{ fontSize: '0.9rem', fontWeight: '500', marginBottom: '0.25rem' }}>
+                          {track.title || 'Untitled'} {track.artist && `- ${track.artist}`}
+                        </p>
+                        <audio controls style={{ width: '100%' }}>
+                          <source src={getMediaUrl(track.url)} />
+                        </audio>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Documents */}
+                {matchResult.bestMatch.documents && matchResult.bestMatch.documents.length > 0 && (
+                  <div className="additional-media" style={{ marginTop: '1rem' }}>
+                    <h4>📄 Documents</h4>
+                    {matchResult.bestMatch.documents.map((doc, idx) => (
+                      <a
+                        key={idx}
+                        href={getMediaUrl(doc.url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'block',
+                          padding: '0.75rem',
+                          background: '#f5f5f5',
+                          borderRadius: '8px',
+                          marginBottom: '0.5rem',
+                          textDecoration: 'none',
+                          color: '#333'
+                        }}
+                      >
+                        📄 {doc.title || 'Document'} {doc.description && <span style={{ color: '#666' }}>- {doc.description}</span>}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -269,7 +399,7 @@ const VisitorScan: React.FC = () => {
               <div className="alternatives-grid">
                 {matchResult.alternatives.map(artwork => (
                   <div key={artwork.id} className="alternative-card">
-                    <img src={`${API_HOST}${artwork.imageUrl}`} alt={artwork.title} />
+                    <img src={getMediaUrl(artwork.imageUrl)} alt={artwork.title} />
                     <div className="alternative-info">
                       <h4>{artwork.title}</h4>
                       <p>{artwork.author}</p>

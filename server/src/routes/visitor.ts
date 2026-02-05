@@ -149,10 +149,29 @@ router.post('/:qrCode/identify', visitorUpload.single('photo'), async (req: Requ
       score: (m.score * 100).toFixed(1) + '%'
     })))}`);
 
-    // Determine if we have a confident match (lowered threshold for better detection)
-    const confident = matches.length > 0 && isConfidentMatch(matches[0].score, 0.5);
+    // Determine if we have a confident match
+    // Threshold of 0.65 filters out non-artwork photos (hands, random objects)
+    // while still matching actual artwork photos taken at different angles
+    const CONFIDENCE_THRESHOLD = 0.65;
+    const confident = matches.length > 0 && isConfidentMatch(matches[0].score, CONFIDENCE_THRESHOLD);
 
-    // Format response
+    // If no confident match, return early with "no artwork found"
+    if (!confident) {
+      Logger.info(`No confident match found. Best score: ${matches.length > 0 ? (matches[0].score * 100).toFixed(1) + '%' : 'N/A'}`);
+      return res.json({
+        success: false,
+        noMatch: true,
+        message: 'No artwork recognized. Please try pointing your camera directly at an artwork in this museum.',
+        museum: {
+          id: museum._id,
+          name: museum.name
+        },
+        bestScore: matches.length > 0 ? Math.round(matches[0].score * 100) : 0,
+        totalArtworks: artworks.length
+      });
+    }
+
+    // Format response with all media fields
     const formatArtwork = (artwork: any, score: number) => ({
       id: artwork._id,
       title: artwork.title,
@@ -164,7 +183,12 @@ router.post('/:qrCode/identify', visitorUpload.single('photo'), async (req: Requ
       audioUrl: artwork.audioUrls?.[language] || artwork.audioUrls?.en,
       matchScore: Math.round(score * 100), // Convert to percentage
       sources: artwork.sources,
-      externalLinks: artwork.externalLinks
+      externalLinks: artwork.externalLinks,
+      // Include additional media
+      additionalPhotos: artwork.additionalPhotos || [],
+      videos: artwork.videos || [],
+      musicTracks: artwork.musicTracks || [],
+      documents: artwork.documents || []
     });
 
     res.json({
@@ -221,7 +245,12 @@ router.get('/:qrCode/artworks', async (req: Request, res: Response) => {
       description: (artwork.descriptions as any)?.[language as string] || (artwork.descriptions as any)?.en || artwork.description,
       audioUrl: (artwork.audioUrls as any)?.[language as string] || (artwork.audioUrls as any)?.en,
       sources: artwork.sources,
-      externalLinks: artwork.externalLinks
+      externalLinks: artwork.externalLinks,
+      // Include additional media
+      additionalPhotos: artwork.additionalPhotos || [],
+      videos: artwork.videos || [],
+      musicTracks: artwork.musicTracks || [],
+      documents: artwork.documents || []
     }));
 
     res.json({
