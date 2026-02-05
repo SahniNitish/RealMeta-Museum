@@ -19,6 +19,14 @@ export const API_BASE = `${API_HOST}/api`;
 export function getMediaUrl(url: string | undefined | null): string {
   if (!url) return '';
 
+  // Fix malformed URLs like "https//" (missing colon)
+  if (url.startsWith('https//')) {
+    url = url.replace('https//', 'https://');
+  }
+  if (url.startsWith('http//')) {
+    url = url.replace('http//', 'http://');
+  }
+
   // If it's already a full URL (S3 or external), return as-is
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
