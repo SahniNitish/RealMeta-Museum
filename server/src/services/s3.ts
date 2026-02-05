@@ -2,26 +2,53 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client
 import { Upload } from '@aws-sdk/lib-storage';
 import fs from 'fs';
 import path from 'path';
+import dotenv from 'dotenv';
 import Logger from '../utils/logger';
 
-// S3 Configuration
-const S3_BUCKET = process.env.S3_BUCKET || 'realmeta-museum-assets';
-const S3_REGION = process.env.S3_REGION || 'us-east-1';
+// Load env vars
+dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env'), override: true });
 
-// Initialize S3 Client
-const s3Client = new S3Client({
-  region: S3_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-  },
+// S3 Configuration - read at runtime
+const getS3Config = () => ({
+  bucket: process.env.S3_BUCKET || 'realmeta-museum-assets',
+  region: process.env.S3_REGION || 'us-east-1',
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
 });
+
+// Lazy S3 Client initialization
+let s3Client: S3Client | null = null;
+
+function getS3Client(): S3Client {
+  const config = getS3Config();
+
+  if (!config.accessKeyId || !config.secretAccessKey) {
+    throw new Error('AWS credentials not configured. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables.');
+  }
+
+  if (!s3Client) {
+    Logger.info(`Initializing S3 client for bucket: ${config.bucket} in region: ${config.region}`);
+    s3Client = new S3Client({
+      region: config.region,
+      credentials: {
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+      },
+    });
+  }
+
+  return s3Client;
+}
+
+// Helper to get bucket name
+const getS3Bucket = () => getS3Config().bucket;
+const getS3Region = () => getS3Config().region;
 
 /**
  * Get the public URL for an S3 object
  */
 export function getS3Url(key: string): string {
-  return `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${key}`;
+  return `https://${getS3Bucket()}.s3.${getS3Region()}.amazonaws.com/${key}`;
 }
 
 /**
@@ -65,9 +92,9 @@ export async function uploadToS3(
 
     // Use multipart upload for large files
     const upload = new Upload({
-      client: s3Client,
+      client: getS3Client(),
       params: {
-        Bucket: S3_BUCKET,
+        Bucket: getS3Bucket(),
         Key: s3Key,
         Body: fileStream,
         ContentType: mimeType,
@@ -97,9 +124,9 @@ export async function uploadBufferToS3(
   try {
     Logger.info(`Uploading buffer to S3: ${s3Key}`);
 
-    await s3Client.send(
+    await getS3Client().send(
       new PutObjectCommand({
-        Bucket: S3_BUCKET,
+        Bucket: getS3Bucket(),
         Key: s3Key,
         Body: buffer,
         ContentType: contentType,
@@ -123,9 +150,9 @@ export async function deleteFromS3(s3Key: string): Promise<void> {
   try {
     Logger.info(`Deleting from S3: ${s3Key}`);
 
-    await s3Client.send(
+    await getS3Client().send(
       new DeleteObjectCommand({
-        Bucket: S3_BUCKET,
+        Bucket: getS3Bucket(),
         Key: s3Key,
       })
     );
@@ -142,7 +169,7 @@ export async function deleteFromS3(s3Key: string): Promise<void> {
  */
 export function extractS3KeyFromUrl(url: string): string | null {
   const s3UrlPattern = new RegExp(
-    `https://${S3_BUCKET}\\.s3\\.${S3_REGION}\\.amazonaws\\.com/(.+)`
+    `https://${getS3Bucket()}\\.s3\\.${getS3Region()}\\.amazonaws\\.com/(.+)`
   );
   const match = url.match(s3UrlPattern);
   return match ? match[1] : null;
@@ -152,7 +179,7 @@ export function extractS3KeyFromUrl(url: string): string | null {
  * Check if URL is an S3 URL
  */
 export function isS3Url(url: string): boolean {
-  return url.includes(`${S3_BUCKET}.s3.`);
+  return url.includes(`${getS3Bucket()}.s3.`);
 }
 
 /**
