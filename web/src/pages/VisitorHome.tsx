@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { API_HOST, API_BASE } from "@/lib/api";
+import { API_HOST, API_BASE, getMediaUrl } from "@/lib/api";
 
 interface Museum {
   id: string;
@@ -426,7 +426,7 @@ export default function VisitorHome() {
               {/* Artwork image */}
               <div className="rounded-2xl overflow-hidden border border-border">
                 <img
-                  src={`${API_HOST}${matchResult.bestMatch.imageUrl}`}
+                  src={getMediaUrl(matchResult.bestMatch.imageUrl)}
                   alt={matchResult.bestMatch.title}
                   className="w-full aspect-[4/3] object-cover"
                 />
@@ -494,7 +494,7 @@ export default function VisitorHome() {
                     <Volume2 className="w-5 h-5 text-muted-foreground" />
                     <audio
                       ref={audioRef}
-                      src={`${API_HOST}${matchResult.bestMatch.audioUrl}`}
+                      src={getMediaUrl(matchResult.bestMatch.audioUrl)}
                       onEnded={() => setIsPlaying(false)}
                     />
                   </div>
