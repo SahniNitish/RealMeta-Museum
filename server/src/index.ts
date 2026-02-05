@@ -59,8 +59,12 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // Global Error Handler
 app.use((err: Error, _req: Request, res: Response, _next: express.NextFunction) => {
-  Logger.error(err.message);
-  res.status(500).json({ error: 'Internal Server Error' });
+  Logger.error(`Global error: ${err.message}`);
+  Logger.error(`Stack: ${err.stack}`);
+  res.status(500).json({
+    error: err.message || 'Internal Server Error',
+    stack: err.stack?.split('\n').slice(0, 5).join(' | ')
+  });
 });
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
