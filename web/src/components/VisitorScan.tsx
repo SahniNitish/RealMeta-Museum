@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getMediaUrl } from '@/lib/api';
+import { getMediaUrl, API_BASE, API_HOST } from '@/lib/api';
 
 interface Museum {
   id: string;
@@ -55,9 +55,7 @@ const VisitorScan: React.FC = () => {
     message?: string;
   } | null>(null);
 
-  // Use centralized API config - supports both dev and production
-  const API_HOST = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? `http://${window.location.hostname}:4000` : window.location.origin);
-  const API_BASE = `${API_HOST}/api`;
+  // API_BASE and API_HOST imported from @/lib/api
 
   const languageOptions = {
     en: { flag: '🇺🇸', name: 'English' },
