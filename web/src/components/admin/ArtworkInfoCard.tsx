@@ -22,6 +22,7 @@ import {
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getMediaUrl } from "@/lib/api";
 
 interface AdditionalPhoto {
   url: string;
@@ -75,7 +76,7 @@ interface ArtworkInfo {
 interface ArtworkInfoCardProps {
   info: ArtworkInfo;
   imageUrl: string;
-  apiHost: string;
+  apiHost?: string; // Deprecated, using getMediaUrl now
   onSave?: () => void;
   onEdit?: () => void;
   isSaving?: boolean;
@@ -103,7 +104,7 @@ const InfoItem = ({ icon: Icon, label, value }: { icon: React.ElementType; label
   </motion.div>
 );
 
-export const ArtworkInfoCard = ({ info, imageUrl, apiHost, onSave, onEdit, isSaving }: ArtworkInfoCardProps) => {
+export const ArtworkInfoCard = ({ info, imageUrl, onSave, onEdit, isSaving }: ArtworkInfoCardProps) => {
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAllLanguages, setShowAllLanguages] = useState(false);
@@ -147,7 +148,7 @@ export const ArtworkInfoCard = ({ info, imageUrl, apiHost, onSave, onEdit, isSav
           className="relative rounded-2xl overflow-hidden shadow-card border border-border"
         >
           <img
-            src={imageUrl.startsWith('http') ? imageUrl : `${apiHost}${imageUrl}`}
+            src={getMediaUrl(imageUrl)}
             alt={info.title}
             className="w-full aspect-[4/3] object-cover"
           />
@@ -282,11 +283,11 @@ export const ArtworkInfoCard = ({ info, imageUrl, apiHost, onSave, onEdit, isSav
               {info.additionalPhotos.map((photo, idx) => (
                 <button
                   key={idx}
-                  onClick={() => setLightboxImage(`${apiHost}${photo.url}`)}
+                  onClick={() => setLightboxImage(getMediaUrl(photo.url))}
                   className="relative aspect-square rounded-lg overflow-hidden hover:ring-2 hover:ring-primary transition-all"
                 >
                   <img
-                    src={`${apiHost}${photo.url}`}
+                    src={getMediaUrl(photo.url)}
                     alt={photo.caption || `Photo ${idx + 1}`}
                     className="w-full h-full object-cover"
                   />
@@ -331,7 +332,7 @@ export const ArtworkInfoCard = ({ info, imageUrl, apiHost, onSave, onEdit, isSav
                     />
                   ) : (
                     <video
-                      src={`${apiHost}${video.url}`}
+                      src={getMediaUrl(video.url)}
                       controls
                       className="w-full aspect-video"
                     />
@@ -371,7 +372,7 @@ export const ArtworkInfoCard = ({ info, imageUrl, apiHost, onSave, onEdit, isSav
                         setPlayingMusicIndex(null);
                       } else {
                         if (musicAudioRef.current) {
-                          musicAudioRef.current.src = `${apiHost}${track.url}`;
+                          musicAudioRef.current.src = getMediaUrl(track.url);
                           musicAudioRef.current.play();
                         }
                         setPlayingMusicIndex(idx);
@@ -419,7 +420,7 @@ export const ArtworkInfoCard = ({ info, imageUrl, apiHost, onSave, onEdit, isSav
               {info.documents.map((doc, idx) => (
                 <a
                   key={idx}
-                  href={`${apiHost}${doc.url}`}
+                  href={getMediaUrl(doc.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors group"
@@ -519,7 +520,7 @@ export const ArtworkInfoCard = ({ info, imageUrl, apiHost, onSave, onEdit, isSav
               </div>
               <audio
                 ref={audioRef}
-                src={`${apiHost}${currentAudioUrl}`}
+                src={getMediaUrl(currentAudioUrl)}
                 onEnded={handleAudioEnded}
               />
             </div>

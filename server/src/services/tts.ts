@@ -3,6 +3,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import axios from 'axios';
 import Logger from '../utils/logger';
+import { uploadBufferToS3 } from './s3';
 
 // Extended language support matching translation service
 export type TtsLanguage =
@@ -47,7 +48,12 @@ const VOICE_IDS: Record<string, string> = {
   fi: '21m00Tcm4TlvDq8ikWAM', // Rachel (multilingual)
 };
 
-export async function synthesizeWithElevenLabs(options: TtsOptions): Promise<string | null> {
+export interface TtsOptionsWithContext extends TtsOptions {
+  museumId?: string;
+  artworkId?: string;
+}
+
+export async function synthesizeWithElevenLabs(options: TtsOptionsWithContext): Promise<string | null> {
   // Force-load env from the server/.env file to avoid stale User/Machine vars
   dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env'), override: true });
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -59,10 +65,8 @@ export async function synthesizeWithElevenLabs(options: TtsOptions): Promise<str
   const language = options.language || 'en';
   const voiceId = options.voiceId || VOICE_IDS[language] || DEFAULT_VOICE;
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
-  const outName = `${Date.now()}_narration_${language}.mp3`;
-  // Resolve uploads directory relative to compiled file location to avoid cwd issues
-  const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
-  const outPath = path.join(uploadsDir, outName);
+  const timestamp = Date.now();
+  const outName = `${timestamp}_narration_${language}.mp3`;
 
   try {
     // Debug: log masked key and current quota
@@ -80,16 +84,26 @@ export async function synthesizeWithElevenLabs(options: TtsOptions): Promise<str
       Logger.warn(`Unable to read ElevenLabs quota: ${quotaErr?.response?.status} ${quotaErr?.response?.data?.toString?.() || quotaErr?.message}`);
     }
 
-    // Ensure uploads directory exists
-    fs.mkdirSync(uploadsDir, { recursive: true });
-
     const response = await axios.post(
       url,
       { text: options.text, model_id: 'eleven_multilingual_v2' },
       { responseType: 'arraybuffer', headers: { 'xi-api-key': apiKey } }
     );
 
-    fs.writeFileSync(outPath, Buffer.from(response.data));
+    const audioBuffer = Buffer.from(response.data);
+
+    // Upload to S3 if museumId and artworkId are provided
+    if (options.museumId && options.artworkId) {
+      const s3Key = `museums/${options.museumId}/artworks/${options.artworkId}/audio/${outName}`;
+      const s3Url = await uploadBufferToS3(audioBuffer, s3Key, 'audio/mpeg');
+      return s3Url;
+    }
+
+    // Fallback to local storage (for backward compatibility)
+    const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
+    const outPath = path.join(uploadsDir, outName);
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    fs.writeFileSync(outPath, audioBuffer);
     return `/uploads/${outName}`;
   } catch (error: any) {
     const status = error?.response?.status;
@@ -99,16 +113,19 @@ export async function synthesizeWithElevenLabs(options: TtsOptions): Promise<str
   }
 }
 
-export async function generateMultiLanguageAudio(descriptions: {
-  [key: string]: string | undefined;
-}): Promise<MultiLanguageAudio> {
+export async function generateMultiLanguageAudio(
+  descriptions: { [key: string]: string | undefined },
+  context?: { museumId?: string; artworkId?: string }
+): Promise<MultiLanguageAudio> {
   const audioUrls: MultiLanguageAudio = {};
 
   for (const [lang, text] of Object.entries(descriptions)) {
     if (text) {
       const audioUrl = await synthesizeWithElevenLabs({
         text,
-        language: lang as TtsLanguage
+        language: lang as TtsLanguage,
+        museumId: context?.museumId,
+        artworkId: context?.artworkId
       });
       if (audioUrl) {
         audioUrls[lang] = audioUrl;
@@ -125,13 +142,16 @@ export async function generateMultiLanguageAudio(descriptions: {
  */
 export async function generateSingleLanguageAudio(
   text: string,
-  language: TtsLanguage
+  language: TtsLanguage,
+  context?: { museumId?: string; artworkId?: string }
 ): Promise<string | null> {
   Logger.info(`🔊 Generating on-demand audio for ${language}...`);
 
   const audioUrl = await synthesizeWithElevenLabs({
     text,
-    language
+    language,
+    museumId: context?.museumId,
+    artworkId: context?.artworkId
   });
 
   if (audioUrl) {

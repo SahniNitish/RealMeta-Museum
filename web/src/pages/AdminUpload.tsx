@@ -9,7 +9,7 @@ import { ArtworkInfoCard } from "@/components/admin/ArtworkInfoCard";
 import { Button } from "@/components/ui/button";
 import { Sparkles, RotateCcw, AlertCircle, X, Check, Image, Video, Music, FileText, Upload, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { API_HOST, API_BASE } from "@/lib/api";
+import { API_HOST, API_BASE, getMediaUrl } from "@/lib/api";
 
 export default function AdminUpload() {
   const { museum, token } = useAuth();
@@ -720,7 +720,7 @@ export default function AdminUpload() {
                                 {artworkInfo.additionalPhotos.map((photo: { url: string; caption?: string }, idx: number) => (
                                   <div key={idx} className="relative group">
                                     <img
-                                      src={`${API_HOST}${photo.url}`}
+                                      src={getMediaUrl(photo.url)}
                                       alt={photo.caption || `Photo ${idx + 1}`}
                                       className="w-full h-20 object-cover rounded-lg"
                                     />
@@ -943,7 +943,7 @@ export default function AdminUpload() {
       {/* Saving Overlay */}
       <AnimatePresence>
         {isSaving && artworkInfo?.imageUrl && (
-          <SavingOverlay imageUrl={`${API_HOST}${artworkInfo.imageUrl}`} />
+          <SavingOverlay imageUrl={getMediaUrl(artworkInfo.imageUrl)} />
         )}
       </AnimatePresence>
     </div>

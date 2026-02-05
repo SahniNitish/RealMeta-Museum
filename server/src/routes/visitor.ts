@@ -129,16 +129,28 @@ router.post('/:qrCode/identify', visitorUpload.single('photo'), async (req: Requ
     const visitorEmbedding = await generateImageEmbedding(tempFilePath);
     Logger.info('Visitor photo embedding generated');
 
-    // Find best matches
-    const matches = findBestMatches(visitorEmbedding, artworks, 3);
+    // Find best matches - get ALL matches for debugging
+    const allMatches = findBestMatches(visitorEmbedding, artworks, artworks.length);
+
+    // Log ALL artwork scores for debugging
+    Logger.info(`=== ARTWORK MATCHING DEBUG ===`);
+    Logger.info(`Total artworks with embeddings: ${artworks.length}`);
+    Logger.info(`All match scores (sorted by similarity):`);
+    allMatches.forEach((m, idx) => {
+      Logger.info(`  ${idx + 1}. "${m.artwork.title}" by ${m.artwork.author || 'Unknown'} - Score: ${(m.score * 100).toFixed(2)}%`);
+    });
+    Logger.info(`==============================`);
+
+    // Get top 3 for response
+    const matches = allMatches.slice(0, 3);
 
     Logger.info(`Match results: ${JSON.stringify(matches.map(m => ({
       title: m.artwork.title,
       score: (m.score * 100).toFixed(1) + '%'
     })))}`);
 
-    // Determine if we have a confident match
-    const confident = matches.length > 0 && isConfidentMatch(matches[0].score);
+    // Determine if we have a confident match (lowered threshold for better detection)
+    const confident = matches.length > 0 && isConfidentMatch(matches[0].score, 0.5);
 
     // Format response
     const formatArtwork = (artwork: any, score: number) => ({
@@ -223,6 +235,39 @@ router.get('/:qrCode/artworks', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     Logger.error(`Error fetching museum artworks: ${error}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/visit/:qrCode/debug - Debug endpoint to check artworks and embeddings
+router.get('/:qrCode/debug', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+    const { qrCode } = req.params;
+
+    const museum = await Museum.findOne({ qrCode: qrCode.toLowerCase() });
+    if (!museum) {
+      return res.status(404).json({ error: 'Museum not found' });
+    }
+
+    const artworks = await Artwork.find({ museumId: museum._id });
+
+    const debugInfo = artworks.map(art => ({
+      id: art._id,
+      title: art.title,
+      author: art.author,
+      hasEmbedding: !!(art.imageEmbedding && art.imageEmbedding.length > 0),
+      embeddingLength: art.imageEmbedding?.length || 0,
+      imageUrl: art.imageUrl
+    }));
+
+    res.json({
+      museum: { id: museum._id, name: museum.name, qrCode: museum.qrCode },
+      totalArtworks: artworks.length,
+      artworksWithEmbeddings: debugInfo.filter(a => a.hasEmbedding).length,
+      artworks: debugInfo
+    });
+  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
@@ -317,11 +362,14 @@ router.post('/artwork/:id/translate', async (req: Request, res: Response) => {
       descriptions[language] = translatedText;
     }
 
-    // Generate audio if needed
+    // Generate audio if needed (upload to S3)
     let audioUrl = audioUrls[language];
     if (!audioUrl && translatedText) {
       Logger.info(`Generating audio for ${language}...`);
-      audioUrl = await generateSingleLanguageAudio(translatedText, language);
+      audioUrl = await generateSingleLanguageAudio(translatedText, language, {
+        museumId: artwork.museumId?.toString(),
+        artworkId: id
+      });
       if (audioUrl) {
         audioUrls[language] = audioUrl;
       }

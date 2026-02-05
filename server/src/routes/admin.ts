@@ -10,13 +10,15 @@ import { fetchFromWikipedia } from '../services/resources';
 import { synthesizeWithElevenLabs, generateMultiLanguageAudio } from '../services/tts';
 import { translateDescription } from '../services/translation';
 import { generateImageEmbedding } from '../services/clip';
+import { uploadToS3, generateS3Key, deleteFromS3, extractS3KeyFromUrl, isS3Url } from '../services/s3';
 import Logger from '../utils/logger';
 
 const router = Router();
 
+// Temporary storage for processing before S3 upload
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    const dest = path.join(__dirname, '..', '..', 'uploads');
+    const dest = path.join(__dirname, '..', '..', 'uploads', 'temp');
     fs.mkdirSync(dest, { recursive: true });
     cb(null, dest);
   },
@@ -27,6 +29,18 @@ const storage = multer.diskStorage({
     cb(null, name);
   },
 });
+
+// Helper to clean up temp file
+const cleanupTempFile = (filePath: string) => {
+  try {
+    if (filePath && fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      Logger.info(`Cleaned up temp file: ${filePath}`);
+    }
+  } catch (err) {
+    Logger.warn(`Failed to cleanup temp file: ${filePath}`);
+  }
+};
 
 const upload = multer({
   storage,
@@ -122,6 +136,8 @@ function extractVimeoId(url: string): string | null {
 // Upload an image and create a draft artwork record
 // OPTIMIZED: Run CLIP, AI, and Wikipedia in parallel. Translation/Audio deferred to finalize.
 router.post('/upload', upload.single('image'), async (req: Request, res: Response) => {
+  let tempFilePath: string | null = null;
+
   try {
     await connectToDatabase();
     const file = req.file;
@@ -149,8 +165,8 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
       return res.status(404).json({ error: 'Museum not found' });
     }
 
-    const imageUrl = `/uploads/${file.filename}`;
-    const absPath = path.join(__dirname, '..', '..', 'uploads', file.filename);
+    tempFilePath = file.path;
+    const absPath = tempFilePath;
 
     // OPTIMIZATION: Run CLIP embedding and AI recognition in parallel
     Logger.info('Starting parallel processing: CLIP embedding + AI recognition...');
@@ -182,6 +198,7 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
     // Create initial artwork with basic info - NO translation/audio during upload
     const baseDescription = wiki?.description || ai.description || 'Artwork uploaded to museum system.';
 
+    // Create artwork first to get the ID for S3 path
     const doc = await Artwork.create({
       title: ai.title || 'Unlabeled Artwork',
       author: ai.author,
@@ -190,11 +207,21 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
       description: baseDescription,
       museumId: museum._id,
       imageEmbedding: imageEmbedding.length > 0 ? imageEmbedding : undefined,
-      descriptions: { en: baseDescription }, // Basic English only, translations on finalize
-      imageUrl,
+      descriptions: { en: baseDescription },
+      imageUrl: '', // Will update after S3 upload
       sources: wiki?.sources
-      // audioUrls will be generated on finalize
     });
+
+    // Upload to S3
+    const s3Key = generateS3Key(museumId, doc._id.toString(), 'main', file.originalname);
+    const imageUrl = await uploadToS3(absPath, s3Key);
+
+    // Update artwork with S3 URL
+    await Artwork.findByIdAndUpdate(doc._id, { imageUrl });
+
+    // Clean up temp file
+    cleanupTempFile(tempFilePath);
+    tempFilePath = null;
 
     Logger.info(`Upload completed in ${Date.now() - startTime}ms total`);
 
@@ -203,11 +230,11 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
       imageUrl,
       ai,
       wiki,
-      autoTranslated: false, // Translations happen on finalize
-      audioGenerated: [],    // Audio happens on finalize
+      autoTranslated: false,
+      audioGenerated: [],
       descriptions: {
         english: baseDescription,
-        french: baseDescription, // Placeholder - will be translated on save
+        french: baseDescription,
         spanish: baseDescription
       },
       audioUrls: {
@@ -217,6 +244,9 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
       }
     });
   } catch (err: unknown) {
+    // Clean up temp file on error
+    if (tempFilePath) cleanupTempFile(tempFilePath);
+
     const message = err instanceof Error ? err.message : 'Unknown error';
     const stack = err instanceof Error ? err.stack : undefined;
     Logger.error(`Upload route error: ${message}`);
@@ -236,6 +266,12 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Description is required for translation and audio generation' });
     }
 
+    // Get artwork to get museumId for S3 path
+    const artwork = await Artwork.findById(id);
+    if (!artwork) {
+      return res.status(404).json({ error: 'Artwork not found' });
+    }
+
     Logger.info(`Auto-translating description from ${sourceLanguage} to all languages...`);
 
     // Translate to all 3 languages automatically
@@ -249,8 +285,11 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
 
     Logger.info('Generating audio in all 3 languages...');
 
-    // Generate audio in all 3 languages automatically
-    const audioUrls = await generateMultiLanguageAudio(descriptions);
+    // Generate audio in all 3 languages automatically (uploaded to S3)
+    const audioUrls = await generateMultiLanguageAudio(descriptions, {
+      museumId: artwork.museumId?.toString(),
+      artworkId: id
+    });
 
     Logger.info(`Audio generation completed: ${JSON.stringify(Object.keys(audioUrls))}`);
 
@@ -435,6 +474,7 @@ router.post('/test-huggingface', upload.single('image'), async (req: Request, re
 
 // Upload additional photos (max 10)
 router.post('/:id/media/photos', imageUpload.array('photos', 10), async (req: Request, res: Response) => {
+  const tempFiles: string[] = [];
   try {
     await connectToDatabase();
     const { id } = req.params;
@@ -453,10 +493,16 @@ router.post('/:id/media/photos', imageUpload.array('photos', 10), async (req: Re
       return res.status(400).json({ error: 'Maximum 10 photos allowed' });
     }
 
-    const newPhotos = files.map((file, index) => ({
-      url: `/uploads/${file.filename}`,
-      caption: captions[index] || '',
-      uploadedAt: new Date(),
+    // Upload each photo to S3
+    const newPhotos = await Promise.all(files.map(async (file, index) => {
+      tempFiles.push(file.path);
+      const s3Key = generateS3Key(artwork.museumId?.toString() || 'unknown', id, 'photos', file.originalname);
+      const url = await uploadToS3(file.path, s3Key);
+      return {
+        url,
+        caption: captions[index] || '',
+        uploadedAt: new Date(),
+      };
     }));
 
     const updated = await Artwork.findByIdAndUpdate(
@@ -465,9 +511,13 @@ router.post('/:id/media/photos', imageUpload.array('photos', 10), async (req: Re
       { new: true }
     );
 
+    // Clean up temp files
+    tempFiles.forEach(cleanupTempFile);
+
     Logger.info(`Added ${newPhotos.length} photos to artwork ${id}`);
     res.json({ success: true, photos: updated?.additionalPhotos });
   } catch (err: unknown) {
+    tempFiles.forEach(cleanupTempFile);
     const message = err instanceof Error ? err.message : 'Unknown error';
     Logger.error(`Photo upload error: ${message}`);
     res.status(500).json({ error: message });
@@ -476,6 +526,7 @@ router.post('/:id/media/photos', imageUpload.array('photos', 10), async (req: Re
 
 // Upload video file or add YouTube/Vimeo URL (max 5)
 router.post('/:id/media/videos', videoUpload.single('video'), async (req: Request, res: Response) => {
+  let tempFilePath: string | null = null;
   try {
     await connectToDatabase();
     const { id } = req.params;
@@ -493,10 +544,16 @@ router.post('/:id/media/videos', videoUpload.single('video'), async (req: Reques
     let newVideo;
 
     if (file) {
-      // File upload
+      // File upload to S3
+      tempFilePath = file.path;
+      const s3Key = generateS3Key(artwork.museumId?.toString() || 'unknown', id, 'videos', file.originalname);
+      const url = await uploadToS3(file.path, s3Key);
+      cleanupTempFile(tempFilePath);
+      tempFilePath = null;
+
       newVideo = {
         type: 'upload' as const,
-        url: `/uploads/${file.filename}`,
+        url,
         title: title || file.originalname,
         uploadedAt: new Date(),
       };
@@ -537,6 +594,7 @@ router.post('/:id/media/videos', videoUpload.single('video'), async (req: Reques
     Logger.info(`Added video to artwork ${id}: ${newVideo.type}`);
     res.json({ success: true, videos: updated?.videos });
   } catch (err: unknown) {
+    if (tempFilePath) cleanupTempFile(tempFilePath);
     const message = err instanceof Error ? err.message : 'Unknown error';
     Logger.error(`Video upload error: ${message}`);
     res.status(500).json({ error: message });
@@ -545,6 +603,7 @@ router.post('/:id/media/videos', videoUpload.single('video'), async (req: Reques
 
 // Upload music/audio files (max 5)
 router.post('/:id/media/music', audioUpload.single('music'), async (req: Request, res: Response) => {
+  let tempFilePath: string | null = null;
   try {
     await connectToDatabase();
     const { id } = req.params;
@@ -555,6 +614,8 @@ router.post('/:id/media/music', audioUpload.single('music'), async (req: Request
       return res.status(400).json({ error: 'No audio file uploaded' });
     }
 
+    tempFilePath = file.path;
+
     const artwork = await Artwork.findById(id);
     if (!artwork) return res.status(404).json({ error: 'Artwork not found' });
 
@@ -563,8 +624,14 @@ router.post('/:id/media/music', audioUpload.single('music'), async (req: Request
       return res.status(400).json({ error: 'Maximum 5 music tracks allowed' });
     }
 
+    // Upload to S3
+    const s3Key = generateS3Key(artwork.museumId?.toString() || 'unknown', id, 'audio', file.originalname);
+    const url = await uploadToS3(file.path, s3Key);
+    cleanupTempFile(tempFilePath);
+    tempFilePath = null;
+
     const newTrack = {
-      url: `/uploads/${file.filename}`,
+      url,
       title: title || file.originalname,
       artist: artist || '',
       uploadedAt: new Date(),
@@ -579,6 +646,7 @@ router.post('/:id/media/music', audioUpload.single('music'), async (req: Request
     Logger.info(`Added music track to artwork ${id}: ${newTrack.title}`);
     res.json({ success: true, musicTracks: updated?.musicTracks });
   } catch (err: unknown) {
+    if (tempFilePath) cleanupTempFile(tempFilePath);
     const message = err instanceof Error ? err.message : 'Unknown error';
     Logger.error(`Music upload error: ${message}`);
     res.status(500).json({ error: message });
@@ -587,6 +655,7 @@ router.post('/:id/media/music', audioUpload.single('music'), async (req: Request
 
 // Upload PDF documents (max 5)
 router.post('/:id/media/documents', documentUpload.single('document'), async (req: Request, res: Response) => {
+  let tempFilePath: string | null = null;
   try {
     await connectToDatabase();
     const { id } = req.params;
@@ -597,6 +666,8 @@ router.post('/:id/media/documents', documentUpload.single('document'), async (re
       return res.status(400).json({ error: 'No document uploaded' });
     }
 
+    tempFilePath = file.path;
+
     const artwork = await Artwork.findById(id);
     if (!artwork) return res.status(404).json({ error: 'Artwork not found' });
 
@@ -605,8 +676,14 @@ router.post('/:id/media/documents', documentUpload.single('document'), async (re
       return res.status(400).json({ error: 'Maximum 5 documents allowed' });
     }
 
+    // Upload to S3
+    const s3Key = generateS3Key(artwork.museumId?.toString() || 'unknown', id, 'documents', file.originalname);
+    const url = await uploadToS3(file.path, s3Key);
+    cleanupTempFile(tempFilePath);
+    tempFilePath = null;
+
     const newDoc = {
-      url: `/uploads/${file.filename}`,
+      url,
       title: title || file.originalname,
       description: description || '',
       uploadedAt: new Date(),
@@ -621,6 +698,7 @@ router.post('/:id/media/documents', documentUpload.single('document'), async (re
     Logger.info(`Added document to artwork ${id}: ${newDoc.title}`);
     res.json({ success: true, documents: updated?.documents });
   } catch (err: unknown) {
+    if (tempFilePath) cleanupTempFile(tempFilePath);
     const message = err instanceof Error ? err.message : 'Unknown error';
     Logger.error(`Document upload error: ${message}`);
     res.status(500).json({ error: message });
@@ -677,16 +755,27 @@ router.delete('/:id/media/:type/:index', async (req: Request, res: Response) => 
       { new: true }
     );
 
-    // Delete the file if it's a local upload
-    if (fileUrl && fileUrl.startsWith('/uploads/')) {
-      const filePath = path.join(__dirname, '..', '..', fileUrl.replace(/^\//, ''));
-      try {
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-          Logger.info(`Deleted file: ${filePath}`);
+    // Delete the file from S3 or local
+    if (fileUrl) {
+      if (isS3Url(fileUrl)) {
+        const s3Key = extractS3KeyFromUrl(fileUrl);
+        if (s3Key) {
+          try {
+            await deleteFromS3(s3Key);
+          } catch (s3Err) {
+            Logger.warn(`Failed to delete from S3: ${s3Key}`);
+          }
         }
-      } catch (fileErr) {
-        Logger.warn(`Failed to delete file: ${filePath}`);
+      } else if (fileUrl.startsWith('/uploads/')) {
+        const filePath = path.join(__dirname, '..', '..', fileUrl.replace(/^\//, ''));
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            Logger.info(`Deleted local file: ${filePath}`);
+          }
+        } catch (fileErr) {
+          Logger.warn(`Failed to delete file: ${filePath}`);
+        }
       }
     }
 
@@ -707,46 +796,54 @@ router.delete('/:id', async (req: Request, res: Response) => {
     const doc = await Artwork.findById(id);
     if (!doc) return res.status(404).json({ error: 'Not found' });
 
-    // Collect files to remove
-    const files: string[] = [];
-    if (doc.imageUrl) files.push(path.join(__dirname, '..', '..', doc.imageUrl.replace(/^\//, '')));
-    if (doc.audioUrl) files.push(path.join(__dirname, '..', '..', doc.audioUrl.replace(/^\//, '')));
+    // Collect all URLs to delete
+    const urls: string[] = [];
+    if (doc.imageUrl) urls.push(doc.imageUrl);
+    if (doc.audioUrl) urls.push(doc.audioUrl);
     if (doc.audioUrls) {
       for (const url of Object.values(doc.audioUrls)) {
-        if (url) files.push(path.join(__dirname, '..', '..', url.replace(/^\//, '')));
+        if (url) urls.push(url);
       }
     }
 
-    // Collect media files
+    // Collect media file URLs
     if (doc.additionalPhotos) {
       for (const photo of doc.additionalPhotos) {
-        if (photo.url) files.push(path.join(__dirname, '..', '..', photo.url.replace(/^\//, '')));
+        if (photo.url) urls.push(photo.url);
       }
     }
     if (doc.videos) {
       for (const video of doc.videos) {
         if (video.type === 'upload' && video.url) {
-          files.push(path.join(__dirname, '..', '..', video.url.replace(/^\//, '')));
+          urls.push(video.url);
         }
       }
     }
     if (doc.musicTracks) {
       for (const track of doc.musicTracks) {
-        if (track.url) files.push(path.join(__dirname, '..', '..', track.url.replace(/^\//, '')));
+        if (track.url) urls.push(track.url);
       }
     }
     if (doc.documents) {
       for (const docItem of doc.documents) {
-        if (docItem.url) files.push(path.join(__dirname, '..', '..', docItem.url.replace(/^\//, '')));
+        if (docItem.url) urls.push(docItem.url);
       }
     }
 
     // Delete DB document
     await Artwork.findByIdAndDelete(id);
 
-    // Best-effort delete files
-    for (const file of files) {
-      try { fs.existsSync(file) && fs.unlinkSync(file); } catch { }
+    // Best-effort delete files from S3 or local
+    for (const url of urls) {
+      try {
+        if (isS3Url(url)) {
+          const s3Key = extractS3KeyFromUrl(url);
+          if (s3Key) await deleteFromS3(s3Key);
+        } else if (url.startsWith('/uploads/')) {
+          const filePath = path.join(__dirname, '..', '..', url.replace(/^\//, ''));
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        }
+      } catch { }
     }
 
     res.json({ success: true });

@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { API_HOST, API_BASE } from "@/lib/api";
+import { API_BASE, getMediaUrl } from "@/lib/api";
 
 interface AdditionalPhoto {
   url: string;
@@ -310,7 +310,7 @@ export default function VisitorBrowse() {
                 className="rounded-xl overflow-hidden bg-card border border-border cursor-pointer hover:border-primary/50 transition-all"
               >
                 <img
-                  src={`${API_HOST}${artwork.imageUrl}`}
+                  src={getMediaUrl(artwork.imageUrl)}
                   alt={artwork.title}
                   className="w-full aspect-square object-cover"
                 />
@@ -359,7 +359,7 @@ export default function VisitorBrowse() {
                 className="rounded-xl overflow-hidden border border-border"
               >
                 <img
-                  src={`${API_HOST}${selectedArtwork.imageUrl}`}
+                  src={getMediaUrl(selectedArtwork.imageUrl)}
                   alt={selectedArtwork.title}
                   className="w-full aspect-[4/3] object-cover"
                 />
@@ -432,7 +432,7 @@ export default function VisitorBrowse() {
                     <Volume2 className="w-5 h-5 text-muted-foreground" />
                     <audio
                       ref={audioRef}
-                      src={`${API_HOST}${selectedArtwork.audioUrl}`}
+                      src={getMediaUrl(selectedArtwork.audioUrl)}
                       onEnded={() => setIsPlaying(false)}
                     />
                   </div>
@@ -449,11 +449,11 @@ export default function VisitorBrowse() {
                       {selectedArtwork.additionalPhotos.map((photo, idx) => (
                         <button
                           key={idx}
-                          onClick={() => setLightboxImage(`${API_HOST}${photo.url}`)}
+                          onClick={() => setLightboxImage(getMediaUrl(photo.url))}
                           className="aspect-square rounded-lg overflow-hidden hover:ring-2 hover:ring-primary transition-all"
                         >
                           <img
-                            src={`${API_HOST}${photo.url}`}
+                            src={getMediaUrl(photo.url)}
                             alt={photo.caption || `Photo ${idx + 1}`}
                             className="w-full h-full object-cover"
                           />
@@ -491,7 +491,7 @@ export default function VisitorBrowse() {
                             />
                           ) : (
                             <video
-                              src={`${API_HOST}${video.url}`}
+                              src={getMediaUrl(video.url)}
                               controls
                               className="w-full aspect-video"
                             />
@@ -524,7 +524,7 @@ export default function VisitorBrowse() {
                                 setPlayingMusicIndex(null);
                               } else {
                                 if (musicAudioRef.current) {
-                                  musicAudioRef.current.src = `${API_HOST}${track.url}`;
+                                  musicAudioRef.current.src = getMediaUrl(track.url);
                                   musicAudioRef.current.play();
                                 }
                                 setPlayingMusicIndex(idx);
@@ -564,7 +564,7 @@ export default function VisitorBrowse() {
                       {selectedArtwork.documents.map((doc, idx) => (
                         <a
                           key={idx}
-                          href={`${API_HOST}${doc.url}`}
+                          href={getMediaUrl(doc.url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
