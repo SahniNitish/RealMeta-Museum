@@ -98,7 +98,7 @@ export async function uploadToS3(
         Key: s3Key,
         Body: fileStream,
         ContentType: mimeType,
-        ACL: 'public-read', // Make uploaded files publicly readable
+        // Public access is handled via bucket policy, not ACL
       },
     });
 
@@ -131,7 +131,7 @@ export async function uploadBufferToS3(
         Key: s3Key,
         Body: buffer,
         ContentType: contentType,
-        ACL: 'public-read', // Make uploaded files publicly readable
+        // Public access is handled via bucket policy, not ACL
       })
     );
 
