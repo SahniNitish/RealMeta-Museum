@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { API_HOST, API_BASE, getMediaUrl } from "@/lib/api";
+import { API_BASE, getMediaUrl } from "@/lib/api";
 
 interface Museum {
   id: string;

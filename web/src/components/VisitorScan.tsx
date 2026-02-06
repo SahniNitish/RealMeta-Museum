@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { getMediaUrl, API_BASE, API_HOST } from '@/lib/api';
+import { getMediaUrl, API_BASE } from '@/lib/api';
 
 interface Museum {
   id: string;
