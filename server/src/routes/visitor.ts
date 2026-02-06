@@ -150,9 +150,9 @@ router.post('/:qrCode/identify', visitorUpload.single('photo'), async (req: Requ
     })))}`);
 
     // Determine if we have a confident match
-    // Threshold of 0.65 filters out non-artwork photos (hands, random objects)
-    // while still matching actual artwork photos taken at different angles
-    const CONFIDENCE_THRESHOLD = 0.65;
+    // Threshold of 0.50 is more permissive for real-world phone photos
+    // (different angles, lighting, partial views of artwork)
+    const CONFIDENCE_THRESHOLD = 0.50;
     const confident = matches.length > 0 && isConfidentMatch(matches[0].score, CONFIDENCE_THRESHOLD);
 
     // If no confident match, return early with "no artwork found"
