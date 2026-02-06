@@ -100,6 +100,8 @@ export default function VisitorHome() {
     confident: boolean;
     bestMatch: MatchedArtwork | null;
     alternatives: MatchedArtwork[];
+    noMatch?: boolean;
+    message?: string;
   } | null>(null);
 
   // Audio
@@ -368,6 +370,47 @@ export default function VisitorHome() {
 
   // Match results
   if (matchResult) {
+    // Handle "no match" case - show friendly message
+    if (matchResult.noMatch || !matchResult.bestMatch) {
+      return (
+        <div className="min-h-screen bg-background flex flex-col">
+          <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
+            <div className="px-4 py-4 flex items-center gap-4">
+              <button
+                onClick={handleScanAnother}
+                className="p-2 rounded-lg hover:bg-muted transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div className="flex-1">
+                <h1 className="font-display text-lg text-foreground">No Match Found</h1>
+                <p className="text-xs text-muted-foreground">{museum?.name}</p>
+              </div>
+            </div>
+          </header>
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+            <div className="w-24 h-24 rounded-full bg-muted/50 flex items-center justify-center mb-6">
+              <Camera className="w-12 h-12 text-muted-foreground" />
+            </div>
+            <h2 className="font-display text-2xl text-foreground mb-2">Artwork Not Found</h2>
+            <p className="text-muted-foreground mb-8 max-w-sm">
+              We couldn't identify this artwork. Please make sure you're pointing the camera directly at a painting in the museum.
+            </p>
+            <div className="flex flex-col gap-3 w-full max-w-xs">
+              <Button variant="gold" onClick={handleScanAnother} className="w-full gap-2">
+                <Camera className="w-4 h-4" />
+                Try Again
+              </Button>
+              <Button variant="outline" onClick={() => navigate(`/visit/${qrCode}/browse`)} className="w-full gap-2">
+                <Images className="w-4 h-4" />
+                Browse Collection
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-background">
         <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
