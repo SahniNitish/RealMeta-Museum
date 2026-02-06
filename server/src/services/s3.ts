@@ -10,7 +10,7 @@ dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env'), override: tru
 
 // S3 Configuration - read at runtime
 const getS3Config = () => ({
-  bucket: process.env.S3_BUCKET || 'realmeta-museum-assets',
+  bucket: process.env.S3_BUCKET || 'realmeta-museum-prod',
   region: process.env.S3_REGION || 'us-east-1',
   accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
