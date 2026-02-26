@@ -192,7 +192,7 @@ All system components are cloud-hosted. Here is what is running and where:
 | Component | Provider | Details |
 |-----------|----------|---------|
 | **Frontend (Website)** | AWS S3 + CloudFront | React app in S3 bucket `realmeta-museum-web`, served via CloudFront CDN (`dw6q73wb38ozb.cloudfront.net`) |
-| **Backend API** | AWS EC2 | Node.js server on `t3.medium` instance (`i-01689e896a88dad54`), IP: `44.220.47.123`, Port: 4000, fronted by CloudFront (`d1nclo4efvqhzz.cloudfront.net`) |
+| **Backend API** | AWS EC2 | Node.js server on `t3.medium` instance (`i-01689e896a88dad54`), IP: `52.205.164.184`, Port: 4000, fronted by CloudFront (`d1nclo4efvqhzz.cloudfront.net`) |
 | **Database** | Amazon DocumentDB 5.0 | Cluster: `museum-docdb-cluster`, Instance: `db.t3.medium`, MongoDB-compatible, encrypted at rest |
 | **Media Storage** | AWS S3 | Bucket: `realmeta-museum-prod`, Region: `us-east-1` |
 | **DNS** | AWS Route 53 | Hosted zones: `realmeta.ca`, `meta-real.ca` |
@@ -314,9 +314,9 @@ If the backend becomes unresponsive:
 
 **Via SSH:**
 ```bash
-ssh -i realmeta-museum-key.pem ec2-user@44.220.47.123
-cd /path/to/museum-app/server
-npm start
+ssh -i realmeta-museum-key-v2.pem ubuntu@52.205.164.184
+cd ~/realmeta-museum/server
+pm2 restart all
 ```
 
 ### 9.3 Checking the Database (Amazon DocumentDB)
@@ -325,7 +325,7 @@ npm start
 2. Go to **Amazon DocumentDB** → Clusters → `museum-docdb-cluster`
 3. To browse data, connect via `mongosh` from the EC2 instance:
    ```bash
-   ssh -i realmeta-museum-key.pem ec2-user@44.220.47.123
+   ssh -i realmeta-museum-key-v2.pem ubuntu@52.205.164.184
    mongosh --tls --tlsCAFile global-bundle.pem \
      --host museum-docdb-cluster.cluster-cx6a4k24g2c6.us-east-1.docdb.amazonaws.com:27017 \
      --username museumadmin --password '<PASSWORD>'
@@ -376,7 +376,7 @@ npm run build
 
 Then redeploy:
 - **Frontend:** Build with `npm run build` in `web/`, then upload `dist/` contents to S3 bucket `realmeta-museum-web` and invalidate CloudFront cache
-- **Backend:** SSH into EC2 instance (`44.220.47.123`), pull latest code, run `npm run build` and restart the server
+- **Backend:** SSH into EC2 instance (`ssh -i realmeta-museum-key-v2.pem ubuntu@52.205.164.184`), update code in `~/realmeta-museum/server`, run `npx tsc` to build, then `pm2 restart all`
 
 ---
 

@@ -278,7 +278,7 @@ Visitor opens camera → captures photo
 |-----------|----------|---------|
 | Media Storage | AWS S3 | Bucket: `realmeta-museum-prod`, Region: `us-east-1` |
 | Database | Amazon DocumentDB 5.0 | Cluster: `museum-docdb-cluster`, Instance: `db.t3.medium`, MongoDB-compatible, encrypted at rest |
-| Backend Hosting | AWS EC2 | Instance: `i-01689e896a88dad54` (`t3.medium`), IP: `44.220.47.123`, Port: 4000, fronted by CloudFront (`d1nclo4efvqhzz.cloudfront.net`) |
+| Backend Hosting | AWS EC2 | Instance: `i-01689e896a88dad54` (`t3.medium`), IP: `52.205.164.184`, Port: 4000, fronted by CloudFront (`d1nclo4efvqhzz.cloudfront.net`) |
 | Frontend Hosting | AWS S3 + CloudFront | S3 bucket: `realmeta-museum-web`, CloudFront CDN: `dw6q73wb38ozb.cloudfront.net` |
 | DNS | AWS Route 53 | Hosted zones: `realmeta.ca`, `meta-real.ca` |
 
@@ -523,7 +523,7 @@ The backend exposes a RESTful JSON API on port 4000. All endpoints under `/api/a
 | Layer | Technology | Status |
 |-------|------------|--------|
 | Frontend | React SPA (built with Vite), hosted on AWS S3 + CloudFront CDN (`dw6q73wb38ozb.cloudfront.net`) | ✅ Deployed |
-| Backend API | Node.js + Express, hosted on AWS EC2 `t3.medium` (`44.220.47.123`), fronted by CloudFront (`d1nclo4efvqhzz.cloudfront.net`) | ✅ Deployed |
+| Backend API | Node.js + Express, hosted on AWS EC2 `t3.medium` (`52.205.164.184`), fronted by CloudFront (`d1nclo4efvqhzz.cloudfront.net`) | ✅ Deployed |
 | Database | Amazon DocumentDB 5.0 (`museum-docdb-cluster`, `db.t3.medium`, same VPC as EC2) | ✅ Live |
 | Media Storage | AWS S3 (`realmeta-museum-prod`, `us-east-1`) | ✅ Active |
 | DNS | AWS Route 53 (`realmeta.ca`, `meta-real.ca`) | ✅ Active |

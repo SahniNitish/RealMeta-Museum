@@ -168,7 +168,7 @@ museum-app/
 | CORS | ✅ Working | Configured for production domains |
 | Error Handling | ✅ Working | Comprehensive try/catch + logging |
 | Logging | ✅ Working | Winston with timestamps |
-| AWS EC2 Deployment | ✅ Working | Backend API hosted on `t3.medium` instance (`44.220.47.123`) |
+| AWS EC2 Deployment | ✅ Working | Backend API hosted on `t3.medium` instance (`52.205.164.184`) |
 | AWS S3 + CloudFront | ✅ Working | Frontend SPA hosted via S3 bucket (`realmeta-museum-web`) + CloudFront CDN |
 
 ---
@@ -404,7 +404,7 @@ museum-app/
 
 | Component | Provider | Details |
 |-----------|----------|---------|
-| **Backend API** | AWS EC2 | Instance: `i-01689e896a88dad54` (`realmeta-museum-server`), Type: `t3.medium`, IP: `44.220.47.123`, Port: 4000 |
+| **Backend API** | AWS EC2 | Instance: `i-01689e896a88dad54` (`realmeta-museum-server`), Type: `t3.medium`, IP: `52.205.164.184`, Port: 4000 |
 | **Backend CDN** | AWS CloudFront | Distribution: `E3SSJL0EHYSH6Y`, URL: `https://d1nclo4efvqhzz.cloudfront.net` |
 | **Frontend** | AWS S3 + CloudFront | S3 Bucket: `realmeta-museum-web`, CloudFront: `E2V48B3OVGC999`, URL: `https://dw6q73wb38ozb.cloudfront.net` |
 | **Media Storage** | AWS S3 | Bucket: `realmeta-museum-prod`, Region: `us-east-1` |
@@ -422,7 +422,7 @@ Internet
     │
     └── API calls (HTTPS) ────────▶ CloudFront (d1nclo4efvqhzz.cloudfront.net)
                                          │
-                                         └──▶ EC2: 44.220.47.123:4000 (Node.js)
+                                         └──▶ EC2: 52.205.164.184:4000 (Node.js)
                                                     │
                                     ┌───────────────┼───────────────────┐
                                     ▼               ▼                   ▼
@@ -437,8 +437,10 @@ Internet
 |----------|-------|
 | Instance ID | `i-01689e896a88dad54` |
 | Instance Type | `t3.medium` |
-| Public IP | `44.220.47.123` |
-| SSH Key | `realmeta-museum-key` |
+| Public IP | `52.205.164.184` |
+| SSH Key | `realmeta-museum-key-v2` |
+| OS User | `ubuntu` |
+| Elastic IP | `52.205.164.184` (static) |
 | Security Group | `realmeta-museum-sg` (`sg-07679fa7180faf012`) |
 | Launched | February 9, 2026 |
 
@@ -578,9 +580,9 @@ Each entry should follow this format:
   - Flagged hardcoded Railway URL in api.ts as still needing update
 **Context:**
 - AWS Account: `994356140688` (user: `nitish-sahni`)
-- EC2 backend: `i-01689e896a88dad54` (`t3.medium`, IP: `44.220.47.123`, SSH key: `realmeta-museum-key`)
+- EC2 backend: `i-01689e896a88dad54` (`t3.medium`, IP: `52.205.164.184`, SSH key: `realmeta-museum-key-v2`)
 - Frontend CloudFront: `dw6q73wb38ozb.cloudfront.net` → S3: `realmeta-museum-web`
-- Backend CloudFront: `d1nclo4efvqhzz.cloudfront.net` → EC2: `44.220.47.123`
+- Backend CloudFront: `d1nclo4efvqhzz.cloudfront.net` → EC2: `52.205.164.184`
 - Media S3: `realmeta-museum-prod` (us-east-1)
 - Route 53 zones: `realmeta.ca`, `meta-real.ca` (no museum subdomain configured yet)
 - Code URLs updated to AWS CloudFront in `web/src/lib/api.ts`, `web/.env`, `server/.env`, `web/src/pages/AdminQRCodes.tsx`

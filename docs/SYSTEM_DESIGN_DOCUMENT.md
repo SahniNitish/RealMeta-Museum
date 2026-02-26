@@ -660,7 +660,7 @@ Internet
     │
     └──── API calls (HTTPS) ──────────▶ CloudFront (d1nclo4efvqhzz.cloudfront.net)
                                               │
-                                              │ Origin: EC2 (44.220.47.123:4000)
+                                              │ Origin: EC2 (52.205.164.184:4000)
                                               │ Instance: t3.medium (realmeta-museum-server)
                                               │
                         ┌─────────────────────┼──────────────────────┐
@@ -685,7 +685,7 @@ Storage:   Local disk (/uploads)
 **Production (AWS):**
 ```
 Frontend:  https://dw6q73wb38ozb.cloudfront.net   (CloudFront → S3: realmeta-museum-web)
-Backend:   https://d1nclo4efvqhzz.cloudfront.net  (CloudFront → EC2: 44.220.47.123:4000)
+Backend:   https://d1nclo4efvqhzz.cloudfront.net  (CloudFront → EC2: 52.205.164.184:4000)
 Database:  mongodb://museumadmin:...@museum-docdb-cluster.cluster-cx6a4k24g2c6.us-east-1.docdb.amazonaws.com:27017/museum_app   (Amazon DocumentDB 5.0)
 Storage:   https://realmeta-museum-prod.s3.us-east-1.amazonaws.com   (AWS S3)
 DNS:       Route 53 — realmeta.ca, meta-real.ca
