@@ -442,18 +442,28 @@ Internet
 | OS User | `ubuntu` |
 | Elastic IP | `52.205.164.184` (static) |
 | Security Group | `realmeta-museum-sg` (`sg-07679fa7180faf012`) |
+| DocumentDB SG | `realmeta-docdb-sg` (`sg-07bf344c38854bc2d`) — allows port 27017 from EC2 SG |
+| Process Manager | PM2 (`pm2 restart all` to restart, `pm2 logs` to view logs) |
+| App Directory | `/home/ubuntu/realmeta-museum` |
 | Launched | February 9, 2026 |
 
 ### Environment Variables
 
-**Backend (on EC2 `/server/.env`):**
+**Backend (on EC2 `~/realmeta-museum/server/.env`):**
 ```
-MONGODB_URI=mongodb+srv://...
+# Database (Amazon DocumentDB 5.0)
+MONGODB_URI=mongodb://museumadmin:<PASSWORD>@museum-docdb-cluster.cluster-cx6a4k24g2c6.us-east-1.docdb.amazonaws.com:27017/museum_app?retryWrites=false&readPreference=primary&authSource=admin&authMechanism=SCRAM-SHA-1
+DOCDB_TLS_CA_FILE=/home/ubuntu/realmeta-museum/server/global-bundle.pem
+
+# AI Services
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-proj-...
 ELEVENLABS_API_KEY=sk_...
+
+# Auth & Server
 JWT_SECRET=your-secret-key
 PORT=4000
+FRONTEND_URL=https://dw6q73wb38ozb.cloudfront.net
 
 # AWS S3 Storage
 AWS_ACCESS_KEY_ID=AKIA...
@@ -478,8 +488,7 @@ VITE_API_URL=https://d1nclo4efvqhzz.cloudfront.net
 | **Automated Tests** | Large | Add unit and integration tests |
 | **Rate Limiting** | Small | Implement API rate limiting |
 | **Input Validation** | Medium | Add strict validation with Zod/Joi |
-| **Custom Domain Setup** | Small | Add Route 53 subdomain (e.g., `museum.realmeta.ca`) and update CloudFront aliases + code references |
-| **Custom Domain** | Small | Add Route 53 subdomain (e.g., `museum.realmeta.ca`) pointing to CloudFront distributions |
+| **Custom Domain** | Small | Add Route 53 subdomain (e.g., `museum.realmeta.ca`) pointing to CloudFront distributions, update CloudFront aliases + code references |
 
 ### Medium Priority (Nice to Have)
 
@@ -563,6 +572,33 @@ Each entry should follow this format:
 ### Log Entries
 
 <!-- AI assistants: Add new entries at the top, below this line -->
+
+### 2026-02-26 - Claude Code (Opus 4.6)
+**Task:** Migrate database from MongoDB Atlas to Amazon DocumentDB 5.0
+**Changes Made:**
+- File: `server/src/utils/db.ts`
+  - Rewrote to support DocumentDB TLS connections via `DOCDB_TLS_CA_FILE` env var
+  - Backward-compatible: connects normally when env var absent (local dev)
+- File: `server/src/models/Museum.ts`
+  - Removed `$text` index (unsupported by DocumentDB, never queried in codebase)
+- AWS Infrastructure:
+  - Created DocumentDB cluster: `museum-docdb-cluster` (engine 5.0, `db.t3.medium`, encrypted)
+  - Created security group: `realmeta-docdb-sg` (`sg-07bf344c38854bc2d`) — port 27017 from EC2 SG only
+  - Created DB subnet group: `museum-docdb-subnet-group`
+  - Downloaded TLS cert (`global-bundle.pem`) to EC2
+  - Created new SSH key pair `realmeta-museum-key-v2` (old key was lost)
+  - Allocated Elastic IP `52.205.164.184` (replaces old dynamic IP `44.220.47.123`)
+  - Updated CloudFront backend origin (`E3SSJL0EHYSH6Y`) to new Elastic IP
+  - Updated EC2 `.env` with DocumentDB URI + TLS config + correct AWS S3 credentials
+  - Terminated helper EC2 instance used for key swap
+- Documentation: Updated all IP references, SSH key/user, deployment instructions across all docs
+**Context:**
+- DocumentDB endpoint: `museum-docdb-cluster.cluster-cx6a4k24g2c6.us-east-1.docdb.amazonaws.com:27017`
+- DocumentDB requires: `retryWrites=false`, `authSource=admin`, `authMechanism=SCRAM-SHA-1`, TLS with `global-bundle.pem`
+- EC2 SSH: `ssh -i realmeta-museum-key-v2.pem ubuntu@52.205.164.184` (user is `ubuntu`, not `ec2-user`)
+- Server managed by PM2: `pm2 restart all`, `pm2 logs`
+- App directory on EC2: `/home/ubuntu/realmeta-museum`
+- No data was migrated (fresh DB, user confirmed not needed)
 
 ### 2026-02-26 - Claude Code (Opus 4.6)
 **Task:** Update documentation to reflect AWS deployment (migrated from Vercel + Railway)
