@@ -33,14 +33,14 @@ The app uses **CLIP (Contrastive Language-Image Pre-training)** for image matchi
 | **Frontend** | React 18 + TypeScript + Vite |
 | **Styling** | Tailwind CSS + Radix UI + Framer Motion |
 | **Backend** | Node.js + Express 5 + TypeScript |
-| **Database** | MongoDB (Mongoose ODM) |
+| **Database** | Amazon DocumentDB 5.0 (Mongoose ODM, MongoDB-compatible) |
 | **Authentication** | JWT (7-day tokens) + bcryptjs |
 | **AI Vision** | Claude 3.5 Sonnet / OpenAI GPT-4O / Hugging Face |
 | **Image Matching** | CLIP (Xenova/clip-vit-base-patch32) |
 | **Translation** | OpenAI API / Google Translate (fallback) |
 | **Text-to-Speech** | ElevenLabs v2 Multilingual |
-| **File Storage** | AWS S3 (realmeta-museum-assets bucket) |
-| **Deployment** | Railway (backend) + Vercel (frontend) |
+| **File Storage** | AWS S3 (`realmeta-museum-prod` bucket, `us-east-1`) |
+| **Deployment** | AWS EC2 (backend) + AWS S3/CloudFront (frontend) |
 
 ### Development Approach
 
@@ -49,7 +49,7 @@ The app uses **CLIP (Contrastive Language-Image Pre-training)** for image matchi
 3. **Admin dashboard**: Built artwork upload and management features
 4. **Visitor experience**: Built QR scanning, camera capture, and matching
 5. **Multi-language**: Added translation and audio generation services
-6. **Deployment**: Deployed to Railway (backend) and Vercel (frontend)
+6. **Deployment**: Deployed to AWS (EC2 backend + S3/CloudFront frontend)
 
 ---
 
@@ -162,14 +162,14 @@ museum-app/
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| MongoDB Database | ✅ Working | Cloud-hosted with proper indexes |
+| Amazon DocumentDB | ✅ Working | AWS-hosted, MongoDB-compatible, encrypted at rest |
 | JWT Authentication | ✅ Working | Secure token-based auth |
 | File Upload | ✅ Working | Multer with proper validation |
 | CORS | ✅ Working | Configured for production domains |
 | Error Handling | ✅ Working | Comprehensive try/catch + logging |
 | Logging | ✅ Working | Winston with timestamps |
-| Railway Deployment | ✅ Working | Backend API hosted |
-| Vercel Deployment | ✅ Working | Frontend SPA hosted |
+| AWS EC2 Deployment | ✅ Working | Backend API hosted on `t3.medium` instance (`44.220.47.123`) |
+| AWS S3 + CloudFront | ✅ Working | Frontend SPA hosted via S3 bucket (`realmeta-museum-web`) + CloudFront CDN |
 
 ---
 
@@ -199,8 +199,8 @@ museum-app/
 
 | Issue | Priority | Description |
 |-------|----------|-------------|
-| Hardcoded API URL | ✅ Fixed | Now using centralized API config |
-| Image Storage | ✅ Fixed | Migrated to AWS S3 |
+| Hardcoded API URL | ✅ Fixed | Centralized in api.ts, now pointing to AWS CloudFront |
+| Image Storage | ✅ Fixed | Migrated to AWS S3 (`realmeta-museum-prod`) |
 | CLIP Model Cache | Low | ~350MB cached locally, could use remote |
 | Test Coverage | High | No automated tests exist |
 | Rate Limiting | Medium | No API rate limiting implemented |
@@ -393,24 +393,58 @@ museum-app/
 
 - **Provider:** ElevenLabs v2 Multilingual
 - **Model:** `eleven_multilingual_v2`
-- **Output:** MP3 files stored in `uploads/audio/`
+- **Output:** MP3 files stored in AWS S3 (`realmeta-museum-prod` bucket)
 - **Languages:** Supports all 16 visitor languages
 
 ---
 
 ## Deployment
 
-### Current Setup
+### Current Setup (AWS — RealMeta Account)
 
-| Service | Provider | URL |
-|---------|----------|-----|
-| Backend API | Railway | `https://realmeta-museum-production.up.railway.app` |
-| Frontend | Vercel | (configured via vercel.json) |
-| Database | MongoDB Atlas | Cloud hosted |
+| Component | Provider | Details |
+|-----------|----------|---------|
+| **Backend API** | AWS EC2 | Instance: `i-01689e896a88dad54` (`realmeta-museum-server`), Type: `t3.medium`, IP: `44.220.47.123`, Port: 4000 |
+| **Backend CDN** | AWS CloudFront | Distribution: `E3SSJL0EHYSH6Y`, URL: `https://d1nclo4efvqhzz.cloudfront.net` |
+| **Frontend** | AWS S3 + CloudFront | S3 Bucket: `realmeta-museum-web`, CloudFront: `E2V48B3OVGC999`, URL: `https://dw6q73wb38ozb.cloudfront.net` |
+| **Media Storage** | AWS S3 | Bucket: `realmeta-museum-prod`, Region: `us-east-1` |
+| **Database** | Amazon DocumentDB 5.0 | Cluster: `museum-docdb-cluster.cluster-cx6a4k24g2c6.us-east-1.docdb.amazonaws.com`, Instance: `db.t3.medium` |
+| **DNS** | AWS Route 53 | Zones: `realmeta.ca`, `meta-real.ca` |
+
+### AWS Infrastructure Details
+
+```
+Internet
+    │
+    ├── Visitors/Admins (HTTPS) ──▶ CloudFront (dw6q73wb38ozb.cloudfront.net)
+    │                                    │
+    │                                    └──▶ S3: realmeta-museum-web (React build)
+    │
+    └── API calls (HTTPS) ────────▶ CloudFront (d1nclo4efvqhzz.cloudfront.net)
+                                         │
+                                         └──▶ EC2: 44.220.47.123:4000 (Node.js)
+                                                    │
+                                    ┌───────────────┼───────────────────┐
+                                    ▼               ▼                   ▼
+                           DocumentDB 5.0     AWS S3              External APIs
+                              (Database)       realmeta-museum-    (Claude, ElevenLabs,
+                                               prod (Media)         OpenAI)
+```
+
+### EC2 Instance Details
+
+| Property | Value |
+|----------|-------|
+| Instance ID | `i-01689e896a88dad54` |
+| Instance Type | `t3.medium` |
+| Public IP | `44.220.47.123` |
+| SSH Key | `realmeta-museum-key` |
+| Security Group | `realmeta-museum-sg` (`sg-07679fa7180faf012`) |
+| Launched | February 9, 2026 |
 
 ### Environment Variables
 
-**Backend (`/server/.env`):**
+**Backend (on EC2 `/server/.env`):**
 ```
 MONGODB_URI=mongodb+srv://...
 ANTHROPIC_API_KEY=sk-ant-...
@@ -422,13 +456,13 @@ PORT=4000
 # AWS S3 Storage
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
-S3_BUCKET=realmeta-museum-assets
+S3_BUCKET=realmeta-museum-prod
 S3_REGION=us-east-1
 ```
 
 **Frontend (`/web/.env`):**
 ```
-VITE_API_URL=https://realmeta-museum-production.up.railway.app
+VITE_API_URL=https://d1nclo4efvqhzz.cloudfront.net
 ```
 
 ---
@@ -442,8 +476,8 @@ VITE_API_URL=https://realmeta-museum-production.up.railway.app
 | **Automated Tests** | Large | Add unit and integration tests |
 | **Rate Limiting** | Small | Implement API rate limiting |
 | **Input Validation** | Medium | Add strict validation with Zod/Joi |
-| **Cloud Storage** | Medium | Migrate uploads to S3/Cloudinary |
-| **Environment Config** | Small | Remove hardcoded URLs, use env vars |
+| **Custom Domain Setup** | Small | Add Route 53 subdomain (e.g., `museum.realmeta.ca`) and update CloudFront aliases + code references |
+| **Custom Domain** | Small | Add Route 53 subdomain (e.g., `museum.realmeta.ca`) pointing to CloudFront distributions |
 
 ### Medium Priority (Nice to Have)
 
@@ -487,7 +521,7 @@ VITE_API_URL=https://realmeta-museum-production.up.railway.app
 - CLIP-based image matching system
 - Multi-language translation and audio generation
 - Complete visitor experience flow
-- Production deployment on Railway + Vercel
+- Production deployment on AWS (EC2 + S3/CloudFront)
 - AWS S3 cloud storage for all media files
 - Additional media support (photos, videos, music, documents)
 - Improved scanning with "No Match Found" UX
@@ -528,6 +562,29 @@ Each entry should follow this format:
 
 <!-- AI assistants: Add new entries at the top, below this line -->
 
+### 2026-02-26 - Claude Code (Opus 4.6)
+**Task:** Update documentation to reflect AWS deployment (migrated from Vercel + Railway)
+**Changes Made:**
+- File: `documentation.md`
+  - Updated tech stack table: File Storage bucket name to `realmeta-museum-prod`, Deployment to AWS EC2 + S3/CloudFront
+  - Updated development approach to reference AWS deployment
+  - Updated infrastructure status table: Railway/Vercel → AWS EC2/S3+CloudFront with instance details
+  - Updated TTS output location from `uploads/audio/` to AWS S3
+  - Rewrote entire Deployment section with full AWS infrastructure map (EC2 instance details, CloudFront distributions, S3 buckets, Route 53 zones)
+  - Updated environment variables to reflect `realmeta-museum-prod` bucket and CloudFront URLs
+  - Updated remaining work: replaced cloud storage/env config tasks with frontend URL update and custom domain tasks
+  - Updated summary to reference AWS deployment
+  - Fixed S3 bucket name in changelog context
+  - Flagged hardcoded Railway URL in api.ts as still needing update
+**Context:**
+- AWS Account: `994356140688` (user: `nitish-sahni`)
+- EC2 backend: `i-01689e896a88dad54` (`t3.medium`, IP: `44.220.47.123`, SSH key: `realmeta-museum-key`)
+- Frontend CloudFront: `dw6q73wb38ozb.cloudfront.net` → S3: `realmeta-museum-web`
+- Backend CloudFront: `d1nclo4efvqhzz.cloudfront.net` → EC2: `44.220.47.123`
+- Media S3: `realmeta-museum-prod` (us-east-1)
+- Route 53 zones: `realmeta.ca`, `meta-real.ca` (no museum subdomain configured yet)
+- Code URLs updated to AWS CloudFront in `web/src/lib/api.ts`, `web/.env`, `server/.env`, `web/src/pages/AdminQRCodes.tsx`
+
 ### 2026-02-05 - Claude Code (Opus 4.5)
 **Task:** Add S3 storage, additional media support, fix scanning issues
 **Changes Made:**
@@ -554,7 +611,7 @@ Each entry should follow this format:
   - Added getMediaUrl() helper for S3/local URL handling
   - Fixed malformed URL handling (https// → https://)
 **Context:**
-- S3 bucket: `realmeta-museum-assets` in us-east-1 with public read bucket policy
+- S3 bucket: `realmeta-museum-prod` in us-east-1 with public read bucket policy (migrated from old `realmeta-museum-assets`)
 - Confidence threshold lowered to 0.50 for real-world phone photos
 - Current CLIP model (clip-vit-base-patch32) has accuracy issues - plan to upgrade to larger model on AWS tomorrow
 

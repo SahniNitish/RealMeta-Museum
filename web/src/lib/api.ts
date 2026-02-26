@@ -5,8 +5,8 @@ const getApiHost = () => {
     return `http://${window.location.hostname}:4000`;
   }
 
-  // Production: Railway API URL
-  return 'https://realmeta-museum-production.up.railway.app';
+  // Production: AWS CloudFront → EC2 backend
+  return 'https://d1nclo4efvqhzz.cloudfront.net';
 };
 
 export const API_HOST = getApiHost();

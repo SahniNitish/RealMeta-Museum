@@ -21,8 +21,8 @@ export default function AdminQRCodes() {
   const { museum } = useAuth();
   const [copied, setCopied] = useState(false);
 
-  // Production URL for visitor access
-  const productionUrl = "https://real-meta-museum.vercel.app";
+  // Production URL for visitor access (AWS S3 + CloudFront)
+  const productionUrl = "https://dw6q73wb38ozb.cloudfront.net";
   const visitorUrl = museum?.qrCode
     ? `${productionUrl}/visit/${museum.qrCode}`
     : "";

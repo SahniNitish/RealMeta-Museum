@@ -44,7 +44,5 @@ const MuseumSchema = new Schema<IMuseum>(
   }
 );
 
-// Create text index for search
-MuseumSchema.index({ name: 'text', location: 'text' });
 
 export const Museum = mongoose.model<IMuseum>('Museum', MuseumSchema);
