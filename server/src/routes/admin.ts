@@ -272,80 +272,63 @@ router.post('/:id/finalize', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Artwork not found' });
     }
 
-    Logger.info(`Auto-translating description from ${sourceLanguage} to all languages...`);
-
-    // Translate to all 3 languages automatically
-    const descriptions = await translateDescription(description, sourceLanguage);
-
-    Logger.info(`Translations completed: ${JSON.stringify({
-      en: descriptions.en?.substring(0, 50) + '...',
-      fr: descriptions.fr?.substring(0, 50) + '...',
-      es: descriptions.es?.substring(0, 50) + '...'
-    })}`);
-
-    Logger.info('Generating audio in all 3 languages...');
-
-    // Generate audio in all 3 languages automatically (uploaded to S3)
-    const audioUrls = await generateMultiLanguageAudio(descriptions, {
-      museumId: artwork.museumId?.toString(),
-      artworkId: id
+    // Save metadata immediately
+    await Artwork.findByIdAndUpdate(id, {
+      title,
+      author,
+      year,
+      style,
+      description,
+      sources,
+      externalLinks,
     });
 
-    Logger.info(`Audio generation completed: ${JSON.stringify(Object.keys(audioUrls))}`);
-
-    const updated = await Artwork.findByIdAndUpdate(
-      id,
-      {
-        title,
-        author,
-        year,
-        style,
-        description: descriptions[sourceLanguage as keyof typeof descriptions],
-        descriptions,
-        sources,
-        externalLinks, // External resource links (Google Drive, etc.)
-        audioUrls
-      },
-      { new: true }
-    );
-
-    if (!updated) return res.status(404).json({ error: 'Not found' });
-
+    // Respond immediately so CloudFront doesn't timeout
     res.json({
-      id: updated._id,
-      title: updated.title,
-      author: updated.author,
-      year: updated.year,
-      style: updated.style,
-      imageUrl: updated.imageUrl,
-
-      // All translations
-      descriptions: {
-        english: descriptions.en,
-        french: descriptions.fr,
-        spanish: descriptions.es
-      },
-
-      // All audio files
-      audioUrls: {
-        english: audioUrls.en,
-        french: audioUrls.fr,
-        spanish: audioUrls.es
-      },
-
-      sources: updated.sources,
-      externalLinks: updated.externalLinks,
-
-      // Summary
-      translationsGenerated: ['English', 'French', 'Spanish'],
-      audioFilesGenerated: Object.keys(audioUrls).map(lang => {
-        const langNames = { en: 'English', fr: 'French', es: 'Spanish' };
-        return langNames[lang as keyof typeof langNames];
-      }),
-
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt
+      id: artwork._id,
+      title,
+      author,
+      year,
+      style,
+      imageUrl: artwork.imageUrl,
+      message: 'Artwork saved. Translations and audio are being generated in the background.',
+      processing: true
     });
+
+    // Process translations and audio in the background (after response sent)
+    (async () => {
+      try {
+        Logger.info(`[Background] Auto-translating description from ${sourceLanguage} to all languages...`);
+
+        const descriptions = await translateDescription(description, sourceLanguage);
+
+        Logger.info(`[Background] Translations completed: ${JSON.stringify({
+          en: descriptions.en?.substring(0, 50) + '...',
+          fr: descriptions.fr?.substring(0, 50) + '...',
+          es: descriptions.es?.substring(0, 50) + '...'
+        })}`);
+
+        Logger.info('[Background] Generating audio in all 3 languages...');
+
+        const audioUrls = await generateMultiLanguageAudio(descriptions, {
+          museumId: artwork.museumId?.toString(),
+          artworkId: id
+        });
+
+        Logger.info(`[Background] Audio generation completed: ${JSON.stringify(Object.keys(audioUrls))}`);
+
+        await Artwork.findByIdAndUpdate(id, {
+          description: descriptions[sourceLanguage as keyof typeof descriptions],
+          descriptions,
+          audioUrls
+        });
+
+        Logger.info(`[Background] Artwork ${id} fully finalized with translations and audio.`);
+      } catch (bgErr: unknown) {
+        const bgMessage = bgErr instanceof Error ? bgErr.message : 'Unknown error';
+        Logger.error(`[Background] Finalize error for ${id}: ${bgMessage}`);
+      }
+    })();
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';

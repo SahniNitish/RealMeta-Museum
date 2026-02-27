@@ -14,7 +14,7 @@ import {
   ArrowRight,
   Sparkles
 } from "lucide-react";
-import { API_HOST, API_BASE } from "@/lib/api";
+import { API_BASE, getMediaUrl } from "@/lib/api";
 
 interface Stats {
   totalArtworks: number;
@@ -197,7 +197,7 @@ export default function AdminDashboard() {
                   >
                     <div className="aspect-square">
                       <img
-                        src={`${API_HOST}${artwork.imageUrl}`}
+                        src={getMediaUrl(artwork.imageUrl)}
                         alt={artwork.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />

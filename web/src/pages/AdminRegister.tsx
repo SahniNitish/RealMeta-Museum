@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { API_HOST } from '@/lib/api';
+import { getMediaUrl } from '@/lib/api';
 
 export default function AdminRegister() {
   const navigate = useNavigate();
@@ -95,7 +95,7 @@ export default function AdminRegister() {
 
   const handleDownloadQR = () => {
     const link = document.createElement('a');
-    link.href = `${API_HOST}${qrCodeUrl}`;
+    link.href = getMediaUrl(qrCodeUrl);
     link.download = `${formData.museumName.replace(/\s+/g, '_')}_QR.png`;
     link.click();
   };
@@ -407,7 +407,7 @@ export default function AdminRegister() {
                   {qrCodeUrl ? (
                     <div className="bg-white rounded-xl p-4 inline-block mb-4">
                       <img
-                        src={`${API_HOST}${qrCodeUrl}`}
+                        src={getMediaUrl(qrCodeUrl)}
                         alt="Museum QR Code"
                         className="w-48 h-48"
                       />
