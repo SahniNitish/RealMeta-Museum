@@ -55,5 +55,6 @@ temp/
 # Optional REPL history
 .node_repl_history
 
-# Markdown files
+# Markdown files (except README)
 *.md
+!README.md
