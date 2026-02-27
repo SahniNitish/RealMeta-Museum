@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import axios from 'axios'
+import { getMediaUrl } from '../lib/api'
 
 interface ArtworkDetail {
   _id: string
@@ -177,7 +178,7 @@ const ArtworkDetail: React.FC = () => {
         <div className="artwork-image-section">
           <div className="artwork-image-container">
             <img 
-              src={`${API_HOST}${artwork.imageUrl}`} 
+              src={getMediaUrl(artwork.imageUrl)}
               alt={artwork.title}
               className="artwork-main-image"
             />
@@ -195,9 +196,9 @@ const ArtworkDetail: React.FC = () => {
                   onEnded={handleAudioEnded}
                   className="audio-player"
                 >
-                  <source 
-                    src={`${API_HOST}${artwork.localizedAudioUrl}`} 
-                    type="audio/mpeg" 
+                  <source
+                    src={getMediaUrl(artwork.localizedAudioUrl)}
+                    type="audio/mpeg"
                   />
                   Your browser does not support the audio element.
                 </audio>
@@ -349,9 +350,9 @@ const ArtworkDetail: React.FC = () => {
                     <p>{description.substring(0, 150)}...</p>
                     {artwork.audioUrls?.[lang as keyof typeof artwork.audioUrls] && (
                       <audio controls className="preview-audio">
-                        <source 
-                          src={`${API_HOST}${artwork.audioUrls[lang as keyof typeof artwork.audioUrls]}`} 
-                          type="audio/mpeg" 
+                        <source
+                          src={getMediaUrl(artwork.audioUrls[lang as keyof typeof artwork.audioUrls])}
+                          type="audio/mpeg"
                         />
                       </audio>
                     )}

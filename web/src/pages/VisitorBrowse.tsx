@@ -99,6 +99,7 @@ export default function VisitorBrowse() {
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [selectedArtwork, setSelectedArtwork] = useState<Artwork | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   // Language modal and translation states
@@ -133,6 +134,8 @@ export default function VisitorBrowse() {
   const closeModal = () => {
     setSelectedArtwork(null);
     setIsPlaying(false);
+    setIsSpeaking(false);
+    window.speechSynthesis.cancel();
     if (audioRef.current) {
       audioRef.current.pause();
     }
@@ -146,6 +149,22 @@ export default function VisitorBrowse() {
       audioRef.current.play();
     }
     setIsPlaying(!isPlaying);
+  };
+
+  // Browser TTS fallback when no server audio available
+  const toggleBrowserTts = (text: string, lang: string) => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang;
+    utterance.rate = 0.9;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(true);
   };
 
   // Handle language change with on-demand translation
@@ -411,7 +430,7 @@ export default function VisitorBrowse() {
                 </div>
 
                 {/* Audio player */}
-                {selectedArtwork.audioUrl && (
+                {selectedArtwork.audioUrl ? (
                   <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/10 border border-primary/20">
                     <button
                       onClick={toggleAudio}
@@ -435,6 +454,26 @@ export default function VisitorBrowse() {
                       src={getMediaUrl(selectedArtwork.audioUrl)}
                       onEnded={() => setIsPlaying(false)}
                     />
+                  </div>
+                ) : selectedArtwork.description && (
+                  <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border">
+                    <button
+                      onClick={() => toggleBrowserTts(selectedArtwork.description, selectedLanguage)}
+                      className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
+                    >
+                      {isSpeaking ? (
+                        <Pause className="w-5 h-5" />
+                      ) : (
+                        <Play className="w-5 h-5 ml-0.5" />
+                      )}
+                    </button>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Listen (Browser Voice)</p>
+                      <p className="text-xs text-muted-foreground">
+                        {languages.find((l) => l.code === selectedLanguage)?.name}
+                      </p>
+                    </div>
+                    <Volume2 className="w-5 h-5 text-muted-foreground" />
                   </div>
                 )}
 

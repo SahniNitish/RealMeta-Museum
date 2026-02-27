@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getMediaUrl } from '../lib/api';
 
 interface Artwork {
   id: string;
@@ -108,7 +109,7 @@ const BrowseCollection: React.FC = () => {
               onClick={() => setSelectedArtwork(artwork)}
             >
               <img
-                src={`${API_HOST}${artwork.imageUrl}`}
+                src={getMediaUrl(artwork.imageUrl)}
                 alt={artwork.title}
                 className="artwork-thumbnail"
               />
@@ -129,7 +130,7 @@ const BrowseCollection: React.FC = () => {
             <button onClick={() => setSelectedArtwork(null)} className="close-btn">✖</button>
 
             <img
-              src={`${API_HOST}${selectedArtwork.imageUrl}`}
+              src={getMediaUrl(selectedArtwork.imageUrl)}
               alt={selectedArtwork.title}
               className="artwork-detail-image"
             />
@@ -150,7 +151,7 @@ const BrowseCollection: React.FC = () => {
                 <div className="audio-section">
                   <h4>🎧 Audio Guide</h4>
                   <audio controls style={{ width: '100%' }}>
-                    <source src={`${API_HOST}${selectedArtwork.audioUrl}`} type="audio/mpeg" />
+                    <source src={getMediaUrl(selectedArtwork.audioUrl)} type="audio/mpeg" />
                   </audio>
                 </div>
               )}

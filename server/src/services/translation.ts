@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import axios from 'axios';
 import Logger from '../utils/logger';
 
@@ -38,10 +38,10 @@ export async function translateDescription(
   originalText: string,
   sourceLanguage: SupportedLanguage = 'en'
 ): Promise<TranslationResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
-    Logger.warn('No OpenAI API key found, trying Google Translate...');
+    Logger.warn('No Anthropic API key found, trying Google Translate...');
     try {
       return await translateWithGoogle(originalText, sourceLanguage);
     } catch (error) {
@@ -54,10 +54,10 @@ export async function translateDescription(
     }
   }
 
-  Logger.info(`🌍 Starting translation from ${languageNames[sourceLanguage]}:`);
-  Logger.debug(`📝 Original text: ${originalText.substring(0, 100)}...`);
+  Logger.info(`Starting translation from ${languageNames[sourceLanguage]}:`);
+  Logger.debug(`Original text: ${originalText.substring(0, 100)}...`);
 
-  const client = new OpenAI({ apiKey });
+  const client = new Anthropic({ apiKey });
 
   const targetLanguages = ['en', 'fr', 'es'].filter(lang => lang !== sourceLanguage) as SupportedLanguage[];
   const result: Partial<TranslationResult> = {
@@ -67,40 +67,30 @@ export async function translateDescription(
   // Translate to each target language
   for (const targetLang of targetLanguages) {
     try {
-      Logger.info(`🔄 Translating to ${languageNames[targetLang]}...`);
+      Logger.info(`Translating to ${languageNames[targetLang]}...`);
 
-      const prompt = `You are a professional translator. Translate this museum artwork description from ${languageNames[sourceLanguage]} to ${languageNames[targetLang]}.
-
-IMPORTANT: 
-- Only return the translated text, nothing else
-- Keep the same meaning and professional tone
-- Make it suitable for museum visitors
-- Do not add explanations or notes
-
-Text to translate:
-${originalText}`;
-
-      const response = await client.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
         messages: [
-          { role: 'system', content: `You are a professional museum translator. Translate text to ${languageNames[targetLang]} only. Return only the translation, no other text.` },
-          { role: 'user', content: originalText }
+          {
+            role: 'user',
+            content: `You are a professional museum translator. Translate the following museum artwork description from ${languageNames[sourceLanguage]} to ${languageNames[targetLang]}. Return ONLY the translation, nothing else. Keep the same meaning and professional tone suitable for museum visitors.\n\n${originalText}`
+          }
         ],
-        max_tokens: 500,
-        temperature: 0.1, // Lower temperature for more consistent translations
       });
 
-      const translation = response.choices[0]?.message?.content?.trim();
+      const translation = response.content[0]?.type === 'text' ? response.content[0].text.trim() : null;
 
       if (translation && translation !== originalText) {
         result[targetLang] = translation;
-        Logger.info(`✅ ${languageNames[targetLang]} translation: ${translation.substring(0, 50)}...`);
+        Logger.info(`${languageNames[targetLang]} translation: ${translation.substring(0, 50)}...`);
       } else {
         Logger.warn(`Translation failed for ${targetLang}, using original text`);
         result[targetLang] = originalText;
       }
     } catch (error) {
-      Logger.error(`❌ Translation error for ${targetLang}: ${error}`);
+      Logger.error(`Translation error for ${targetLang}: ${error}`);
       result[targetLang] = originalText; // Fallback to original
     }
   }
@@ -231,14 +221,14 @@ export async function translateToLanguage(
     return text;
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   const targetName = languageNames[targetLanguage] || targetLanguage;
   const sourceName = languageNames[sourceLanguage] || sourceLanguage;
 
-  Logger.info(`🌍 On-demand translation: ${sourceName} → ${targetName}`);
+  Logger.info(`On-demand translation: ${sourceName} → ${targetName}`);
 
   if (!apiKey) {
-    Logger.warn('No OpenAI API key, trying Google Translate...');
+    Logger.warn('No Anthropic API key, trying Google Translate...');
     try {
       return await translateSingleWithGoogle(text, sourceLanguage, targetLanguage);
     } catch (error) {
@@ -248,31 +238,29 @@ export async function translateToLanguage(
   }
 
   try {
-    const client = new OpenAI({ apiKey });
+    const client = new Anthropic({ apiKey });
 
-    const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
       messages: [
         {
-          role: 'system',
-          content: `You are a professional museum translator. Translate the following text to ${targetName}. Return ONLY the translation, nothing else. Keep the same meaning and professional tone suitable for museum visitors.`
-        },
-        { role: 'user', content: text }
+          role: 'user',
+          content: `You are a professional museum translator. Translate the following text from ${sourceName} to ${targetName}. Return ONLY the translation, nothing else. Keep the same meaning and professional tone suitable for museum visitors.\n\n${text}`
+        }
       ],
-      max_tokens: 1000,
-      temperature: 0.1,
     });
 
-    const translation = response.choices[0]?.message?.content?.trim();
+    const translation = response.content[0]?.type === 'text' ? response.content[0].text.trim() : null;
 
     if (translation && translation !== text) {
-      Logger.info(`✅ Translated to ${targetName}: ${translation.substring(0, 50)}...`);
+      Logger.info(`Translated to ${targetName}: ${translation.substring(0, 50)}...`);
       return translation;
     }
 
     return text;
   } catch (error) {
-    Logger.error(`❌ OpenAI translation error: ${error}`);
+    Logger.error(`Anthropic translation error: ${error}`);
     // Try Google as fallback
     try {
       return await translateSingleWithGoogle(text, sourceLanguage, targetLanguage);
@@ -309,7 +297,7 @@ async function translateSingleWithGoogle(
 
     if (response.data?.[0]?.[0]?.[0]) {
       const translation = response.data[0].map((part: any) => part[0]).join('');
-      Logger.info(`✅ Google translated to ${targetLang}: ${translation.substring(0, 50)}...`);
+      Logger.info(`Google translated to ${targetLang}: ${translation.substring(0, 50)}...`);
       return translation;
     }
 

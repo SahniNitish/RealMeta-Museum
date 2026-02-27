@@ -106,6 +106,7 @@ export default function VisitorHome() {
 
   // Audio
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   // Language translation states
@@ -313,6 +314,8 @@ export default function VisitorHome() {
     setMatchResult(null);
     setShowCamera(false);
     setIsPlaying(false);
+    setIsSpeaking(false);
+    window.speechSynthesis.cancel();
     if (audioRef.current) {
       audioRef.current.pause();
     }
@@ -326,6 +329,22 @@ export default function VisitorHome() {
       audioRef.current.play();
     }
     setIsPlaying(!isPlaying);
+  };
+
+  // Browser TTS fallback when no server audio available
+  const toggleBrowserTts = (text: string, lang: string) => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang;
+    utterance.rate = 0.9;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(true);
   };
 
   // Loading state
@@ -516,7 +535,7 @@ export default function VisitorHome() {
                 </div>
 
                 {/* Audio player */}
-                {matchResult.bestMatch.audioUrl && (
+                {matchResult.bestMatch.audioUrl ? (
                   <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/10 border border-primary/20">
                     <button
                       onClick={toggleAudio}
@@ -540,6 +559,26 @@ export default function VisitorHome() {
                       src={getMediaUrl(matchResult.bestMatch.audioUrl)}
                       onEnded={() => setIsPlaying(false)}
                     />
+                  </div>
+                ) : matchResult.bestMatch.description && (
+                  <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border">
+                    <button
+                      onClick={() => toggleBrowserTts(matchResult.bestMatch!.description, selectedLanguage)}
+                      className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
+                    >
+                      {isSpeaking ? (
+                        <Pause className="w-5 h-5" />
+                      ) : (
+                        <Play className="w-5 h-5 ml-0.5" />
+                      )}
+                    </button>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Listen (Browser Voice)</p>
+                      <p className="text-xs text-muted-foreground">
+                        {languages.find((l) => l.code === selectedLanguage)?.name}
+                      </p>
+                    </div>
+                    <Volume2 className="w-5 h-5 text-muted-foreground" />
                   </div>
                 )}
               </div>

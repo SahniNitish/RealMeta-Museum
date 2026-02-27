@@ -86,7 +86,16 @@ export async function synthesizeWithElevenLabs(options: TtsOptionsWithContext): 
 
     const response = await axios.post(
       url,
-      { text: options.text, model_id: 'eleven_multilingual_v2' },
+      {
+        text: options.text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: {
+          stability: 0.7,
+          similarity_boost: 0.8,
+          style: 0.35,
+          use_speaker_boost: true
+        }
+      },
       { responseType: 'arraybuffer', headers: { 'xi-api-key': apiKey } }
     );
 
