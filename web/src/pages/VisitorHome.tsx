@@ -49,6 +49,10 @@ interface MatchedArtwork {
   audioUrl?: string;
   matchScore: number;
   sources?: Array<{ provider: string; url: string }>;
+  additionalPhotos?: Array<{ url: string; caption?: string }>;
+  videos?: Array<{ type: 'upload' | 'youtube' | 'vimeo'; url: string; embedId?: string; title?: string }>;
+  musicTracks?: Array<{ url: string; title?: string; artist?: string }>;
+  documents?: Array<{ url: string; title?: string; description?: string }>;
 }
 
 // Extended language support (16 languages)
@@ -582,6 +586,115 @@ export default function VisitorHome() {
                   </div>
                 )}
               </div>
+
+              {/* Additional Photos */}
+              {matchResult.bestMatch.additionalPhotos && matchResult.bestMatch.additionalPhotos.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <Images className="w-4 h-4 text-primary" />
+                    More Photos
+                  </h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {matchResult.bestMatch.additionalPhotos.map((photo, idx) => (
+                      <img
+                        key={idx}
+                        src={getMediaUrl(photo.url)}
+                        alt={photo.caption || `Photo ${idx + 1}`}
+                        className="w-full aspect-square object-cover rounded-xl border border-border"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Videos */}
+              {matchResult.bestMatch.videos && matchResult.bestMatch.videos.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <Play className="w-4 h-4 text-primary" />
+                    Videos ({matchResult.bestMatch.videos.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {matchResult.bestMatch.videos.map((video, idx) => (
+                      <div key={idx} className="rounded-xl overflow-hidden border border-border">
+                        {video.type === 'youtube' && video.embedId ? (
+                          <iframe
+                            src={`https://www.youtube.com/embed/${video.embedId}`}
+                            title={video.title || `Video ${idx + 1}`}
+                            className="w-full aspect-video"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        ) : video.type === 'vimeo' && video.embedId ? (
+                          <iframe
+                            src={`https://player.vimeo.com/video/${video.embedId}`}
+                            title={video.title || `Video ${idx + 1}`}
+                            className="w-full aspect-video"
+                            allow="autoplay; fullscreen; picture-in-picture"
+                            allowFullScreen
+                          />
+                        ) : (
+                          <video
+                            src={getMediaUrl(video.url)}
+                            controls
+                            className="w-full aspect-video"
+                          />
+                        )}
+                        {video.title && (
+                          <div className="px-3 py-2 bg-card">
+                            <p className="text-xs font-medium text-foreground">{video.title}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Music Tracks */}
+              {matchResult.bestMatch.musicTracks && matchResult.bestMatch.musicTracks.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <Volume2 className="w-4 h-4 text-primary" />
+                    Music
+                  </h3>
+                  <div className="space-y-2">
+                    {matchResult.bestMatch.musicTracks.map((track, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-card border border-border">
+                        <p className="text-sm font-medium text-foreground mb-2">
+                          {track.title || 'Untitled'} {track.artist && <span className="text-muted-foreground">— {track.artist}</span>}
+                        </p>
+                        <audio controls className="w-full">
+                          <source src={getMediaUrl(track.url)} />
+                        </audio>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Documents */}
+              {matchResult.bestMatch.documents && matchResult.bestMatch.documents.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                    📄 Documents
+                  </h3>
+                  <div className="space-y-2">
+                    {matchResult.bestMatch.documents.map((doc, idx) => (
+                      <a
+                        key={idx}
+                        href={getMediaUrl(doc.url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block p-3 rounded-xl bg-card border border-border hover:bg-muted/50 transition-colors"
+                      >
+                        <p className="text-sm font-medium text-foreground">📄 {doc.title || 'Document'}</p>
+                        {doc.description && <p className="text-xs text-muted-foreground mt-1">{doc.description}</p>}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 

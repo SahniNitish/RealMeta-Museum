@@ -42,13 +42,6 @@ const cleanupTempFile = (filePath: string) => {
   }
 };
 
-const upload = multer({
-  storage,
-  fileFilter: (_req, _file, cb) => {
-    cb(null, true); // Accept any file
-  }
-});
-
 // File size limits (in bytes)
 const FILE_LIMITS = {
   image: 10 * 1024 * 1024,    // 10MB
@@ -56,6 +49,14 @@ const FILE_LIMITS = {
   audio: 50 * 1024 * 1024,    // 50MB
   document: 20 * 1024 * 1024, // 20MB
 };
+
+const upload = multer({
+  storage,
+  limits: { fileSize: FILE_LIMITS.image }, // 10MB for artwork images
+  fileFilter: (_req, _file, cb) => {
+    cb(null, true); // Accept any file
+  }
+});
 
 // Allowed MIME types
 const ALLOWED_TYPES = {

@@ -58,3 +58,6 @@ temp/
 # Markdown files (except README)
 *.md
 !README.md
+
+# Credentials file
+keys.md
