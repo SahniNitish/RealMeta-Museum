@@ -7,6 +7,9 @@ export interface IAdmin extends Document {
   name: string;
   museumId: mongoose.Types.ObjectId;
   role: 'admin' | 'superadmin';
+  isVerified: boolean;
+  verificationToken?: string;
+  verificationTokenExpiry?: Date;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -40,6 +43,18 @@ const AdminSchema = new Schema<IAdmin>(
       type: String,
       enum: ['admin', 'superadmin'],
       default: 'admin'
+    },
+    isVerified: {
+      type: Boolean,
+      default: false
+    },
+    verificationToken: {
+      type: String,
+      select: false
+    },
+    verificationTokenExpiry: {
+      type: Date,
+      select: false
     }
   },
   {

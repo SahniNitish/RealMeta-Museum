@@ -8,24 +8,23 @@ import QRCode from 'qrcode';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import { sendVerificationEmail } from '../services/email';
 
 const router = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '7d';
+const FRONTEND_URL = 'https://dw6q73wb38ozb.cloudfront.net';
 
-// Generate QR code for museum
-async function generateMuseumQRCode(museumId: string, museumName: string): Promise<string> {
+// Generate QR code image that encodes the visitor URL
+async function generateMuseumQRCode(qrCode: string): Promise<string> {
   const qrDir = path.join(__dirname, '..', '..', 'uploads', 'qrcodes');
   fs.mkdirSync(qrDir, { recursive: true });
 
-  const qrData = JSON.stringify({
-    type: 'museum',
-    id: museumId,
-    name: museumName
-  });
+  const qrData = `${FRONTEND_URL}/visit/${qrCode}`;
 
-  const filename = `qr_${museumId}.png`;
+  // Use qrCode slug as filename (stable, human-readable)
+  const filename = `qr_${qrCode}.png`;
   const filepath = path.join(qrDir, filename);
 
   await QRCode.toFile(filepath, qrData, {
@@ -47,7 +46,6 @@ router.post('/register', async (req: Request, res: Response) => {
 
     const { email, password, name, museumName, museumLocation, museumDescription, museumWebsite } = req.body;
 
-    // Validate required fields
     if (!email || !password || !name || !museumName || !museumLocation) {
       return res.status(400).json({
         error: 'Missing required fields',
@@ -55,16 +53,15 @@ router.post('/register', async (req: Request, res: Response) => {
       });
     }
 
-    // Check if admin already exists
     const existingAdmin = await Admin.findOne({ email: email.toLowerCase() });
     if (existingAdmin) {
       return res.status(400).json({ error: 'An account with this email already exists' });
     }
 
-    // Generate unique QR code for museum
+    // Generate unique QR code slug for museum
     const qrCode = `museum_${crypto.randomBytes(8).toString('hex')}`;
 
-    // Create museum first
+    // Create museum
     const museum = await Museum.create({
       name: museumName,
       location: museumLocation,
@@ -73,8 +70,12 @@ router.post('/register', async (req: Request, res: Response) => {
       qrCode
     });
 
-    // Generate QR code image
-    const qrCodeUrl = await generateMuseumQRCode(museum._id.toString(), museumName);
+    // Generate QR code image (encodes visitor URL)
+    const qrCodeUrl = await generateMuseumQRCode(qrCode);
+
+    // Generate email verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
     // Create admin
     const admin = await Admin.create({
@@ -82,7 +83,10 @@ router.post('/register', async (req: Request, res: Response) => {
       password,
       name,
       museumId: museum._id,
-      role: 'admin'
+      role: 'admin',
+      isVerified: false,
+      verificationToken,
+      verificationTokenExpiry
     });
 
     // Generate JWT token
@@ -97,6 +101,11 @@ router.post('/register', async (req: Request, res: Response) => {
       { expiresIn: JWT_EXPIRES_IN }
     );
 
+    // Send verification email — fire and forget, never block registration
+    sendVerificationEmail(admin.email, verificationToken, admin.name).catch(err => {
+      Logger.error(`Verification email failed for ${admin.email}: ${err}`);
+    });
+
     Logger.info(`New admin registered: ${email} for museum: ${museumName}`);
 
     res.status(201).json({
@@ -106,7 +115,8 @@ router.post('/register', async (req: Request, res: Response) => {
         id: admin._id,
         email: admin.email,
         name: admin.name,
-        role: admin.role
+        role: admin.role,
+        isVerified: admin.isVerified
       },
       museum: {
         id: museum._id,
@@ -135,25 +145,21 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    // Find admin
     const admin = await Admin.findOne({ email: email.toLowerCase() });
     if (!admin) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Check password
     const isMatch = await admin.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Get museum info
     const museum = await Museum.findById(admin.museumId);
     if (!museum) {
       return res.status(500).json({ error: 'Museum not found for this admin' });
     }
 
-    // Generate JWT token
     const token = jwt.sign(
       {
         adminId: admin._id,
@@ -174,7 +180,8 @@ router.post('/login', async (req: Request, res: Response) => {
         id: admin._id,
         email: admin.email,
         name: admin.name,
-        role: admin.role
+        role: admin.role,
+        isVerified: admin.isVerified
       },
       museum: {
         id: museum._id,
@@ -223,7 +230,8 @@ router.get('/me', async (req: Request, res: Response) => {
           id: admin._id,
           email: admin.email,
           name: admin.name,
-          role: admin.role
+          role: admin.role,
+          isVerified: admin.isVerified
         },
         museum: museum ? {
           id: museum._id,
@@ -240,6 +248,42 @@ router.get('/me', async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     Logger.error(`Profile fetch error: ${message}`);
+    res.status(500).json({ error: message });
+  }
+});
+
+// Verify email via token link
+router.get('/verify-email', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+
+    const { token } = req.query;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'Verification token is required' });
+    }
+
+    const admin = await Admin.findOne({
+      verificationToken: token,
+      verificationTokenExpiry: { $gt: new Date() }
+    }).select('+verificationToken +verificationTokenExpiry');
+
+    if (!admin) {
+      return res.status(400).json({ error: 'Invalid or expired verification link' });
+    }
+
+    admin.isVerified = true;
+    admin.verificationToken = undefined;
+    admin.verificationTokenExpiry = undefined;
+    await admin.save();
+
+    Logger.info(`Email verified for admin: ${admin.email}`);
+
+    res.json({ message: 'Email verified successfully', email: admin.email });
+
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    Logger.error(`Email verification error: ${message}`);
     res.status(500).json({ error: message });
   }
 });
@@ -262,7 +306,6 @@ export const authenticateAdmin = async (req: Request, res: Response, next: NextF
         role: string;
       };
 
-      // Attach decoded info to request
       (req as Request & { admin: typeof decoded }).admin = decoded;
       next();
 
@@ -275,5 +318,48 @@ export const authenticateAdmin = async (req: Request, res: Response, next: NextF
     res.status(500).json({ error: message });
   }
 };
+
+// Resend verification email (requires auth)
+router.post('/resend-verification', authenticateAdmin, async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+
+    const adminReq = req as Request & { admin: { adminId: string; email: string } };
+    const admin = await Admin.findById(adminReq.admin.adminId)
+      .select('+verificationToken +verificationTokenExpiry');
+
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    if (admin.isVerified) {
+      return res.status(400).json({ error: 'Email is already verified' });
+    }
+
+    // Rate limit: don't resend if token was generated less than 60 seconds ago
+    if (
+      admin.verificationTokenExpiry &&
+      admin.verificationTokenExpiry.getTime() > Date.now() + 24 * 60 * 60 * 1000 - 60 * 1000
+    ) {
+      return res.status(429).json({ error: 'Please wait 60 seconds before requesting another email' });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    admin.verificationToken = verificationToken;
+    admin.verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await admin.save();
+
+    sendVerificationEmail(admin.email, verificationToken, admin.name).catch(err => {
+      Logger.error(`Resend verification email failed for ${admin.email}: ${err}`);
+    });
+
+    res.json({ message: 'Verification email sent' });
+
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    Logger.error(`Resend verification error: ${message}`);
+    res.status(500).json({ error: message });
+  }
+});
 
 export default router;
