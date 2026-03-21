@@ -325,14 +325,20 @@ export default function VisitorHome() {
     }
   };
 
-  const toggleAudio = () => {
+  const toggleAudio = async () => {
     if (!audioRef.current) return;
     if (isPlaying) {
       audioRef.current.pause();
+      setIsPlaying(false);
     } else {
-      audioRef.current.play();
+      try {
+        await audioRef.current.play();
+        setIsPlaying(true);
+      } catch (err) {
+        console.error("Audio play failed:", err);
+        setIsPlaying(false);
+      }
     }
-    setIsPlaying(!isPlaying);
   };
 
   // Browser TTS fallback when no server audio available
@@ -559,9 +565,11 @@ export default function VisitorHome() {
                     </div>
                     <Volume2 className="w-5 h-5 text-muted-foreground" />
                     <audio
+                      key={matchResult.bestMatch.audioUrl}
                       ref={audioRef}
                       src={getMediaUrl(matchResult.bestMatch.audioUrl)}
                       onEnded={() => setIsPlaying(false)}
+                      onPause={() => setIsPlaying(false)}
                     />
                   </div>
                 ) : matchResult.bestMatch.description && (

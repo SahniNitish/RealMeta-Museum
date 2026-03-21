@@ -136,20 +136,27 @@ export const AdminSidebar = () => {
           "flex items-center gap-3",
           collapsed && "justify-center"
         )}>
-          <div className="w-10 h-10 rounded-full bg-surface-elevated border border-border flex items-center justify-center">
+          <button
+            onClick={() => navigate("/admin/profile")}
+            title="My Profile"
+            className="w-10 h-10 rounded-full bg-surface-elevated border border-border flex items-center justify-center hover:border-primary/50 transition-colors shrink-0"
+          >
             <span className="text-sm font-medium text-foreground">
               {admin?.name ? getInitials(admin.name) : "AD"}
             </span>
-          </div>
+          </button>
           {!collapsed && (
-            <div className="flex-1 min-w-0">
+            <button
+              onClick={() => navigate("/admin/profile")}
+              className="flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+            >
               <p className="text-sm font-medium text-foreground truncate">
                 {admin?.name || "Admin"}
               </p>
               <p className="text-xs text-muted-foreground truncate">
                 {admin?.email || "admin@museum.com"}
               </p>
-            </div>
+            </button>
           )}
           {!collapsed && (
             <button

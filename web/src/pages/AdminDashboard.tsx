@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { API_BASE, getMediaUrl } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Stats {
   totalArtworks: number;
@@ -27,28 +28,32 @@ export default function AdminDashboard() {
   const [, setLoading] = useState(true);
   const [recentArtworks, setRecentArtworks] = useState<any[]>([]);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { museum } = useAuth();
 
+  // Re-fetch whenever navigating to dashboard or window regains focus
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [location.pathname, museum?.id]);
+
+  useEffect(() => {
+    const handleFocus = () => fetchStats();
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [museum?.id]);
 
   const fetchStats = async () => {
+    if (!museum?.id) return;
     try {
-      const museumsRes = await axios.get(`${API_BASE}/museums`);
-      const museums = museumsRes.data.museums || [];
+      const artworksRes = await axios.get(`${API_BASE}/museums/${museum.id}/artworks`);
+      const artworks = artworksRes.data.artworks || [];
 
-      if (museums.length > 0) {
-        const museum = museums[0];
-        const artworksRes = await axios.get(`${API_BASE}/museums/${museum._id}/artworks`);
-        const artworks = artworksRes.data.artworks || [];
-
-        setStats({
-          totalArtworks: artworks.length,
-          museumName: museum.name,
-          museumLocation: museum.location,
-        });
-        setRecentArtworks(artworks.slice(0, 4));
-      }
+      setStats({
+        totalArtworks: artworks.length,
+        museumName: museum.name,
+        museumLocation: museum.location,
+      });
+      setRecentArtworks(artworks.slice(0, 4));
     } catch (err) {
       console.error("Failed to fetch stats:", err);
     } finally {
