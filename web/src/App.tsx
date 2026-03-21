@@ -14,6 +14,7 @@ import AdminLogin from './pages/AdminLogin'
 import AdminRegister from './pages/AdminRegister'
 import VisitorHome from './pages/VisitorHome'
 import VisitorBrowse from './pages/VisitorBrowse'
+import VerifyEmail from './pages/VerifyEmail'
 import './index.css'
 
 function App() {
@@ -90,6 +91,9 @@ function App() {
             {/* Visitor Routes (public) */}
             <Route path="/visit/:qrCode" element={<VisitorHome />} />
             <Route path="/visit/:qrCode/browse" element={<VisitorBrowse />} />
+
+            {/* Email verification (public) */}
+            <Route path="/verify-email" element={<VerifyEmail />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

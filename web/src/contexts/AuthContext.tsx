@@ -8,6 +8,7 @@ interface Admin {
   email: string;
   name: string;
   role: string;
+  isVerified: boolean;
 }
 
 interface Museum {
@@ -27,6 +28,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<{ qrCodeUrl: string }>;
   logout: () => void;
+  resendVerification: () => Promise<void>;
 }
 
 interface RegisterData {
@@ -112,6 +114,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setMuseum(null);
   };
 
+  const resendVerification = async () => {
+    const storedToken = localStorage.getItem('token');
+    await axios.post(
+      `${API_BASE}/auth/resend-verification`,
+      {},
+      { headers: { Authorization: `Bearer ${storedToken}` } }
+    );
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -122,7 +133,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: !!token && !!admin,
         login,
         register,
-        logout
+        logout,
+        resendVerification
       }}
     >
       {children}

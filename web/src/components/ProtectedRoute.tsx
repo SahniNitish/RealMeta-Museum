@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
+import { EmailVerificationBanner } from '@/components/admin/EmailVerificationBanner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -22,9 +23,13 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   if (!isAuthenticated) {
-    // Redirect to login, preserving the intended destination
     return <Navigate to="/admin/login" state={{ from: location }} replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <EmailVerificationBanner />
+      {children}
+    </>
+  );
 };
