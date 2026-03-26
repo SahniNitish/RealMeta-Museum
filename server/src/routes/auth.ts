@@ -14,7 +14,7 @@ const router = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '7d';
-const FRONTEND_URL = 'https://dw6q73wb38ozb.cloudfront.net';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://museum.realmeta.ca';
 
 // Generate QR code image that encodes the visitor URL
 async function generateMuseumQRCode(qrCode: string): Promise<string> {

@@ -10,7 +10,7 @@ const ses = new SESClient({
 });
 
 const SENDER = 'noreply@realmeta.ca';
-const FRONTEND_URL = 'https://dw6q73wb38ozb.cloudfront.net';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://museum.realmeta.ca';
 
 export async function sendVerificationEmail(
   to: string,
