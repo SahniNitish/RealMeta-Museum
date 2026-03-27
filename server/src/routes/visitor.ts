@@ -449,6 +449,17 @@ router.get('/languages', (_req: Request, res: Response) => {
     { code: 'tr', name: 'Türkçe', flag: '🇹🇷' },
     { code: 'pl', name: 'Polski', flag: '🇵🇱' },
     { code: 'sv', name: 'Svenska', flag: '🇸🇪' },
+    { code: 'bn', name: 'বাংলা', flag: '🇧🇩' },
+    { code: 'ta', name: 'தமிழ்', flag: '🇮🇳' },
+    { code: 'te', name: 'తెలుగు', flag: '🇮🇳' },
+    { code: 'mr', name: 'मराठी', flag: '🇮🇳' },
+    { code: 'gu', name: 'ગુજરાતી', flag: '🇮🇳' },
+    { code: 'kn', name: 'ಕನ್ನಡ', flag: '🇮🇳' },
+    { code: 'ml', name: 'മലയാളം', flag: '🇮🇳' },
+    { code: 'pa', name: 'ਪੰਜਾਬੀ', flag: '🇮🇳' },
+    { code: 'as', name: 'অসমীয়া', flag: '🇮🇳' },
+    { code: 'sd', name: 'سنڌي', flag: '🇵🇰' },
+    { code: 'ne', name: 'नेपाली', flag: '🇳🇵' },
   ];
 
   res.json({ success: true, languages });

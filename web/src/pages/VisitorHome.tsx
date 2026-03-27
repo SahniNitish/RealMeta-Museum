@@ -55,7 +55,7 @@ interface MatchedArtwork {
   documents?: Array<{ url: string; title?: string; description?: string }>;
 }
 
-// Extended language support (16 languages)
+// Extended language support (27 languages)
 const languages = [
   { code: "en", name: "English", flag: "🇺🇸" },
   { code: "es", name: "Español", flag: "🇪🇸" },
@@ -73,6 +73,17 @@ const languages = [
   { code: "tr", name: "Türkçe", flag: "🇹🇷" },
   { code: "pl", name: "Polski", flag: "🇵🇱" },
   { code: "sv", name: "Svenska", flag: "🇸🇪" },
+  { code: "bn", name: "বাংলা", flag: "🇧🇩" },
+  { code: "ta", name: "தமிழ்", flag: "🇮🇳" },
+  { code: "te", name: "తెలుగు", flag: "🇮🇳" },
+  { code: "mr", name: "मराठी", flag: "🇮🇳" },
+  { code: "gu", name: "ગુજરાતી", flag: "🇮🇳" },
+  { code: "kn", name: "ಕನ್ನಡ", flag: "🇮🇳" },
+  { code: "ml", name: "മലയാളം", flag: "🇮🇳" },
+  { code: "pa", name: "ਪੰਜਾਬੀ", flag: "🇮🇳" },
+  { code: "as", name: "অসমীয়া", flag: "🇮🇳" },
+  { code: "sd", name: "سنڌي", flag: "🇵🇰" },
+  { code: "ne", name: "नेपाली", flag: "🇳🇵" },
 ];
 
 export default function VisitorHome() {

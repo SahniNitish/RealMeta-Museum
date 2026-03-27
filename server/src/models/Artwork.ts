@@ -55,6 +55,18 @@ export interface ArtworkDocument extends Document {
     pt?: string;
     ru?: string;
     ar?: string;
+    hi?: string;
+    bn?: string;
+    ta?: string;
+    te?: string;
+    mr?: string;
+    gu?: string;
+    kn?: string;
+    ml?: string;
+    pa?: string;
+    as?: string;
+    sd?: string;
+    ne?: string;
   };
   imageUrl?: string;
   audioUrl?: string;
@@ -69,6 +81,18 @@ export interface ArtworkDocument extends Document {
     pt?: string;
     ru?: string;
     ar?: string;
+    hi?: string;
+    bn?: string;
+    ta?: string;
+    te?: string;
+    mr?: string;
+    gu?: string;
+    kn?: string;
+    ml?: string;
+    pa?: string;
+    as?: string;
+    sd?: string;
+    ne?: string;
   };
   sources?: { provider: string; url: string }[];
   createdAt: Date;
@@ -141,6 +165,18 @@ const ArtworkSchema = new Schema<ArtworkDocument>(
       pt: { type: String },
       ru: { type: String },
       ar: { type: String },
+      hi: { type: String },
+      bn: { type: String },
+      ta: { type: String },
+      te: { type: String },
+      mr: { type: String },
+      gu: { type: String },
+      kn: { type: String },
+      ml: { type: String },
+      pa: { type: String },
+      as: { type: String },
+      sd: { type: String },
+      ne: { type: String },
     },
     imageUrl: { type: String },
     audioUrl: { type: String },
@@ -155,6 +191,18 @@ const ArtworkSchema = new Schema<ArtworkDocument>(
       pt: { type: String },
       ru: { type: String },
       ar: { type: String },
+      hi: { type: String },
+      bn: { type: String },
+      ta: { type: String },
+      te: { type: String },
+      mr: { type: String },
+      gu: { type: String },
+      kn: { type: String },
+      ml: { type: String },
+      pa: { type: String },
+      as: { type: String },
+      sd: { type: String },
+      ne: { type: String },
     },
     sources: [
       {

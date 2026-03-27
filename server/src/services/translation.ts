@@ -6,7 +6,8 @@ import Logger from '../utils/logger';
 export type SupportedLanguage =
   | 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'nl' // European
   | 'zh' | 'ja' | 'ko' | 'hi' | 'ar' | 'ru' | 'tr' // Asian/Middle Eastern
-  | 'pl' | 'sv' | 'da' | 'no' | 'fi'; // Nordic/Eastern European
+  | 'pl' | 'sv' | 'da' | 'no' | 'fi' // Nordic/Eastern European
+  | 'bn' | 'ta' | 'te' | 'mr' | 'gu' | 'kn' | 'ml' | 'pa' | 'as' | 'sd' | 'ne'; // Indian
 
 export interface TranslationResult {
   [key: string]: string;
@@ -31,7 +32,18 @@ export const languageNames: Record<string, string> = {
   sv: 'Swedish',
   da: 'Danish',
   no: 'Norwegian',
-  fi: 'Finnish'
+  fi: 'Finnish',
+  bn: 'Bengali',
+  ta: 'Tamil',
+  te: 'Telugu',
+  mr: 'Marathi',
+  gu: 'Gujarati',
+  kn: 'Kannada',
+  ml: 'Malayalam',
+  pa: 'Punjabi',
+  as: 'Assamese',
+  sd: 'Sindhi',
+  ne: 'Nepali'
 };
 
 export async function translateDescription(
