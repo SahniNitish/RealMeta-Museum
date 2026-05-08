@@ -15,6 +15,8 @@ import AdminRegister from './pages/AdminRegister'
 import VisitorHome from './pages/VisitorHome'
 import VisitorBrowse from './pages/VisitorBrowse'
 import VerifyEmail from './pages/VerifyEmail'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import './index.css'
 
 function App() {
@@ -29,6 +31,8 @@ function App() {
             {/* Auth Routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/register" element={<AdminRegister />} />
+            <Route path="/admin/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* Protected Admin Routes */}
             <Route

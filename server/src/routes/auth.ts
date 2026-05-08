@@ -8,7 +8,7 @@ import QRCode from 'qrcode';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import { sendVerificationEmail } from '../services/email';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email';
 
 const router = Router();
 
@@ -285,6 +285,93 @@ router.get('/verify-email', async (req: Request, res: Response) => {
     const message = error instanceof Error ? error.message : 'Unknown error';
     Logger.error(`Email verification error: ${message}`);
     res.status(500).json({ error: message });
+  }
+});
+
+// Forgot password — send reset email
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const admin = await Admin.findOne({ email: email.toLowerCase() })
+      .select('+resetPasswordToken +resetPasswordTokenExpiry');
+
+    // Always return success to avoid email enumeration
+    if (!admin) {
+      return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+    }
+
+    // Rate limit: don't send if token was generated less than 60 seconds ago
+    if (
+      admin.resetPasswordTokenExpiry &&
+      admin.resetPasswordTokenExpiry.getTime() > Date.now() + 60 * 60 * 1000 - 60 * 1000
+    ) {
+      return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    admin.resetPasswordToken = resetToken;
+    admin.resetPasswordTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await admin.save();
+
+    sendPasswordResetEmail(admin.email, resetToken, admin.name).catch(err => {
+      Logger.error(`Password reset email failed for ${admin.email}: ${err}`);
+    });
+
+    Logger.info(`Password reset requested for: ${email}`);
+
+    res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    Logger.error(`Forgot password error: ${message}`);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  }
+});
+
+// Reset password via token
+router.post('/reset-password', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const admin = await Admin.findOne({
+      resetPasswordToken: token,
+      resetPasswordTokenExpiry: { $gt: new Date() }
+    }).select('+resetPasswordToken +resetPasswordTokenExpiry');
+
+    if (!admin) {
+      return res.status(400).json({ error: 'Invalid or expired reset link. Please request a new one.' });
+    }
+
+    admin.password = password;
+    admin.resetPasswordToken = undefined;
+    admin.resetPasswordTokenExpiry = undefined;
+    await admin.save();
+
+    Logger.info(`Password reset successful for: ${admin.email}`);
+
+    res.json({ message: 'Password reset successful. You can now sign in with your new password.' });
+
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    Logger.error(`Reset password error: ${message}`);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
 

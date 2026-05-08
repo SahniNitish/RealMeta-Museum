@@ -10,6 +10,8 @@ export interface IAdmin extends Document {
   isVerified: boolean;
   verificationToken?: string;
   verificationTokenExpiry?: Date;
+  resetPasswordToken?: string;
+  resetPasswordTokenExpiry?: Date;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -53,6 +55,14 @@ const AdminSchema = new Schema<IAdmin>(
       select: false
     },
     verificationTokenExpiry: {
+      type: Date,
+      select: false
+    },
+    resetPasswordToken: {
+      type: String,
+      select: false
+    },
+    resetPasswordTokenExpiry: {
       type: Date,
       select: false
     }
