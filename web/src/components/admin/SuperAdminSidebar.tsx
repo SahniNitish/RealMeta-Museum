@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Building2,
+  BarChart3,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -24,6 +25,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Overview", path: "/superadmin" },
   { icon: Building2, label: "Museums", path: "/superadmin/museums" },
+  { icon: BarChart3, label: "Analytics", path: "/superadmin/analytics" },
 ];
 
 export const SuperAdminSidebar = () => {

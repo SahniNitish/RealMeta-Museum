@@ -3,6 +3,7 @@ import { connectToDatabase } from '../utils/db';
 import { Admin } from '../models/Admin';
 import { Museum } from '../models/Museum';
 import { Artwork } from '../models/Artwork';
+import { Visitor } from '../models/Visitor';
 import Logger from '../utils/logger';
 import { authenticateAdmin } from './auth';
 
@@ -25,16 +26,18 @@ router.get('/stats', async (_req: Request, res: Response) => {
   try {
     await connectToDatabase();
 
-    const [totalMuseums, totalArtworks, totalAdmins] = await Promise.all([
+    const [totalMuseums, totalArtworks, totalAdmins, totalVisitors] = await Promise.all([
       Museum.countDocuments(),
       Artwork.countDocuments(),
       Admin.countDocuments(),
+      Visitor.countDocuments(),
     ]);
 
     res.json({
       totalMuseums,
       totalArtworks,
       totalAdmins,
+      totalVisitors,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -114,6 +117,102 @@ router.get('/museums/:id/artworks', async (req: Request, res: Response) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     Logger.error(`Superadmin museum artworks error: ${message}`);
+    res.status(500).json({ error: message });
+  }
+});
+
+// GET /api/superadmin/analytics — platform-wide visitor analytics
+router.get('/analytics', async (_req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+
+    const weekAgo = new Date(now);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    const monthAgo = new Date(now);
+    monthAgo.setDate(monthAgo.getDate() - 30);
+
+    // Basic counts
+    const [totalVisitors, todayVisitors, weekVisitors, monthVisitors] = await Promise.all([
+      Visitor.countDocuments(),
+      Visitor.countDocuments({ visitedAt: { $gte: todayStart } }),
+      Visitor.countDocuments({ visitedAt: { $gte: weekAgo } }),
+      Visitor.countDocuments({ visitedAt: { $gte: monthAgo } }),
+    ]);
+
+    // Visitors per museum (top 10)
+    const visitorsPerMuseum = await Visitor.aggregate([
+      { $group: { _id: '$museumId', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'museums',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'museum',
+        },
+      },
+      { $unwind: { path: '$museum', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 1,
+          count: 1,
+          museumName: { $ifNull: ['$museum.name', 'Unknown'] },
+        },
+      },
+    ]);
+
+    // Language breakdown
+    const languageBreakdown = await Visitor.aggregate([
+      { $group: { _id: '$language', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    // Daily visitors for the last 14 days
+    const fourteenDaysAgo = new Date(now);
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13);
+    fourteenDaysAgo.setHours(0, 0, 0, 0);
+
+    const dailyVisitors = await Visitor.aggregate([
+      { $match: { visitedAt: { $gte: fourteenDaysAgo } } },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$visitedAt' },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    // Fill in missing days with 0
+    const dailyData: { date: string; count: number }[] = [];
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(fourteenDaysAgo);
+      d.setDate(d.getDate() + i);
+      const dateStr = d.toISOString().split('T')[0];
+      const found = dailyVisitors.find((dv: any) => dv._id === dateStr);
+      dailyData.push({ date: dateStr, count: found ? found.count : 0 });
+    }
+
+    res.json({
+      totalVisitors,
+      todayVisitors,
+      weekVisitors,
+      monthVisitors,
+      visitorsPerMuseum,
+      languageBreakdown,
+      dailyVisitors: dailyData,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    Logger.error(`Superadmin analytics error: ${message}`);
     res.status(500).json({ error: message });
   }
 });

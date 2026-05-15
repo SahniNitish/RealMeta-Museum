@@ -16,6 +16,7 @@ import AdminRegister from './pages/AdminRegister'
 import SuperAdminDashboard from './pages/SuperAdminDashboard'
 import SuperAdminMuseums from './pages/SuperAdminMuseums'
 import SuperAdminMuseumDetail from './pages/SuperAdminMuseumDetail'
+import SuperAdminAnalytics from './pages/SuperAdminAnalytics'
 import TermsOfUse from './pages/TermsOfUse'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import VisitorHome from './pages/VisitorHome'
@@ -124,6 +125,14 @@ function App() {
               element={
                 <SuperAdminRoute>
                   <SuperAdminMuseumDetail />
+                </SuperAdminRoute>
+              }
+            />
+            <Route
+              path="/superadmin/analytics"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminAnalytics />
                 </SuperAdminRoute>
               }
             />

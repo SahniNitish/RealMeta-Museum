@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Building2, Image, Users, Loader2, AlertCircle } from 'lucide-react';
+import { Building2, Image, Users, Eye, Loader2, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,7 @@ interface Stats {
   totalMuseums: number;
   totalArtworks: number;
   totalAdmins: number;
+  totalVisitors: number;
 }
 
 interface MuseumItem {
@@ -55,6 +56,7 @@ export default function SuperAdminDashboard() {
         { label: 'Total Museums', value: stats.totalMuseums, icon: Building2, color: 'text-blue-500' },
         { label: 'Total Artworks', value: stats.totalArtworks, icon: Image, color: 'text-emerald-500' },
         { label: 'Total Admins', value: stats.totalAdmins, icon: Users, color: 'text-amber-500' },
+        { label: 'Total Visitors', value: stats.totalVisitors, icon: Eye, color: 'text-purple-500' },
       ]
     : [];
 
@@ -84,7 +86,7 @@ export default function SuperAdminDashboard() {
           ) : (
             <>
               {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                 {statCards.map((card, i) => (
                   <motion.div
                     key={card.label}
