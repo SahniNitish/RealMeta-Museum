@@ -7,6 +7,7 @@ import publicRouter from './routes/public';
 import museumsRouter from './routes/museums';
 import visitorRouter from './routes/visitor';
 import authRouter from './routes/auth';
+import superadminRouter from './routes/superadmin';
 import { connectToDatabase } from './utils/db';
 import Logger from './utils/logger';
 
@@ -49,6 +50,7 @@ app.use((req, res, next) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/superadmin', superadminRouter);
 app.use('/api/museums', museumsRouter);
 app.use('/api/visit', visitorRouter);
 app.use('/api', publicRouter);

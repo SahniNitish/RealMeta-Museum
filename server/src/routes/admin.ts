@@ -11,9 +11,13 @@ import { synthesizeWithElevenLabs, generateMultiLanguageAudio } from '../service
 import { translateDescription } from '../services/translation';
 import { generateImageEmbedding } from '../services/clip';
 import { uploadToS3, generateS3Key, deleteFromS3, extractS3KeyFromUrl, isS3Url } from '../services/s3';
+import { authenticateAdmin } from './auth';
 import Logger from '../utils/logger';
 
 const router = Router();
+
+// All admin routes require authentication
+router.use(authenticateAdmin);
 
 // Temporary storage for processing before S3 upload
 const storage = multer.diskStorage({

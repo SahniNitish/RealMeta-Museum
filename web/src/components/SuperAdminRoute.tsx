@@ -1,13 +1,12 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
-import { EmailVerificationBanner } from '@/components/admin/EmailVerificationBanner';
 
-interface ProtectedRouteProps {
+interface SuperAdminRouteProps {
   children: React.ReactNode;
 }
 
-export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+export const SuperAdminRoute = ({ children }: SuperAdminRouteProps) => {
   const { isAuthenticated, isLoading, admin } = useAuth();
   const location = useLocation();
 
@@ -26,15 +25,9 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/admin/login" state={{ from: location }} replace />;
   }
 
-  // Superadmins should use the superadmin dashboard
-  if (admin?.role === 'superadmin') {
-    return <Navigate to="/superadmin" replace />;
+  if (admin?.role !== 'superadmin') {
+    return <Navigate to="/admin" replace />;
   }
 
-  return (
-    <>
-      <EmailVerificationBanner />
-      {children}
-    </>
-  );
+  return <>{children}</>;
 };

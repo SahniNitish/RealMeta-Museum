@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, AlertCircle, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,8 +23,8 @@ export default function AdminLogin() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      navigate('/admin');
+      const { role } = await login(email, password);
+      navigate(role === 'superadmin' ? '/superadmin' : '/admin');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,7 +35,16 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative">
+      {/* Theme toggle */}
+      <button
+        onClick={toggleTheme}
+        className="absolute top-6 right-6 p-2.5 rounded-xl bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+      </button>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -161,6 +172,18 @@ export default function AdminLogin() {
           >
             Register your museum
           </Link>
+        </motion.p>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-center mt-4 text-xs text-muted-foreground"
+        >
+          By signing in you agree to our{' '}
+          <Link to="/terms" className="text-primary hover:text-primary/80 underline">Terms of Use</Link>
+          {' '}and{' '}
+          <Link to="/privacy" className="text-primary hover:text-primary/80 underline">Privacy Policy</Link>
         </motion.p>
       </motion.div>
     </div>

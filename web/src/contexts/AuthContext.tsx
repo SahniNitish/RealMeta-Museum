@@ -25,7 +25,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ role: string }>;
   register: (data: RegisterData) => Promise<{ qrCodeUrl: string }>;
   logout: () => void;
   resendVerification: () => Promise<void>;
@@ -93,6 +93,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(newToken);
     setAdmin(adminData);
     setMuseum(museumData);
+
+    return { role: adminData.role };
   };
 
   const register = async (data: RegisterData) => {

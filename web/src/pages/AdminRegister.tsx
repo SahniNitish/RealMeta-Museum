@@ -449,20 +449,34 @@ export default function AdminRegister() {
 
         {/* Login Link */}
         {step < 3 && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="text-center mt-6 text-muted-foreground"
-          >
-            Already have an account?{' '}
-            <Link
-              to="/admin/login"
-              className="text-primary hover:text-primary/80 font-medium transition-colors"
+          <>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="text-center mt-6 text-muted-foreground"
             >
-              Sign in
-            </Link>
-          </motion.p>
+              Already have an account?{' '}
+              <Link
+                to="/admin/login"
+                className="text-primary hover:text-primary/80 font-medium transition-colors"
+              >
+                Sign in
+              </Link>
+            </motion.p>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="text-center mt-4 text-xs text-muted-foreground"
+            >
+              By registering you agree to our{' '}
+              <Link to="/terms" className="text-primary hover:text-primary/80 underline">Terms of Use</Link>
+              {' '}and{' '}
+              <Link to="/privacy" className="text-primary hover:text-primary/80 underline">Privacy Policy</Link>
+            </motion.p>
+          </>
         )}
       </motion.div>
     </div>

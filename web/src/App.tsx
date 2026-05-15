@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { SuperAdminRoute } from './components/SuperAdminRoute'
 import SplashScreen from './pages/SplashScreen'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminUpload from './pages/AdminUpload'
@@ -12,6 +13,11 @@ import AdminSettings from './pages/AdminSettings'
 import AdminProfile from './pages/AdminProfile'
 import AdminLogin from './pages/AdminLogin'
 import AdminRegister from './pages/AdminRegister'
+import SuperAdminDashboard from './pages/SuperAdminDashboard'
+import SuperAdminMuseums from './pages/SuperAdminMuseums'
+import SuperAdminMuseumDetail from './pages/SuperAdminMuseumDetail'
+import TermsOfUse from './pages/TermsOfUse'
+import PrivacyPolicy from './pages/PrivacyPolicy'
 import VisitorHome from './pages/VisitorHome'
 import VisitorBrowse from './pages/VisitorBrowse'
 import VerifyEmail from './pages/VerifyEmail'
@@ -33,6 +39,10 @@ function App() {
             <Route path="/admin/register" element={<AdminRegister />} />
             <Route path="/admin/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+
+            {/* Legal Pages (public) */}
+            <Route path="/terms" element={<TermsOfUse />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
 
             {/* Protected Admin Routes */}
             <Route
@@ -89,6 +99,32 @@ function App() {
                 <ProtectedRoute>
                   <AdminProfile />
                 </ProtectedRoute>
+              }
+            />
+
+            {/* Super Admin Routes */}
+            <Route
+              path="/superadmin"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminDashboard />
+                </SuperAdminRoute>
+              }
+            />
+            <Route
+              path="/superadmin/museums"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminMuseums />
+                </SuperAdminRoute>
+              }
+            />
+            <Route
+              path="/superadmin/museums/:id"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminMuseumDetail />
+                </SuperAdminRoute>
               }
             />
 

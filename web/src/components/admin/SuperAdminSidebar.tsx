@@ -1,0 +1,194 @@
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Building2,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Sun,
+  Moon,
+  Shield,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
+
+interface NavItem {
+  icon: React.ElementType;
+  label: string;
+  path: string;
+}
+
+const navItems: NavItem[] = [
+  { icon: LayoutDashboard, label: "Overview", path: "/superadmin" },
+  { icon: Building2, label: "Museums", path: "/superadmin/museums" },
+];
+
+export const SuperAdminSidebar = () => {
+  const [collapsed, setCollapsed] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { admin, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+
+  const isActive = (path: string) => {
+    if (path === "/superadmin") {
+      return location.pathname === "/superadmin";
+    }
+    return location.pathname.startsWith(path);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/admin/login");
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  return (
+    <motion.aside
+      initial={false}
+      animate={{ width: collapsed ? 80 : 280 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className="h-screen bg-sidebar border-r border-sidebar-border flex flex-col sticky top-0"
+    >
+      {/* Logo */}
+      <div className="p-6 border-b border-sidebar-border">
+        <motion.div
+          className="flex items-center gap-3"
+          animate={{ justifyContent: collapsed ? "center" : "flex-start" }}
+        >
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
+            <Shield className="w-5 h-5 text-primary-foreground" />
+          </div>
+          {!collapsed && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <h1 className="font-display text-xl text-foreground">RealMeta</h1>
+              <p className="text-xs text-primary font-medium">Super Admin</p>
+            </motion.div>
+          )}
+        </motion.div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-2">
+        {navItems.map((item, index) => (
+          <motion.button
+            key={item.label}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.05 }}
+            onClick={() => navigate(item.path)}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
+              isActive(item.path)
+                ? "bg-primary/10 text-primary border border-primary/20"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            )}
+          >
+            <item.icon
+              className={cn(
+                "w-5 h-5 shrink-0",
+                isActive(item.path) && "text-primary"
+              )}
+            />
+            {!collapsed && <span className="font-medium">{item.label}</span>}
+            {isActive(item.path) && !collapsed && (
+              <motion.div
+                layoutId="superadmin-active"
+                className="ml-auto w-2 h-2 rounded-full bg-primary"
+              />
+            )}
+          </motion.button>
+        ))}
+      </nav>
+
+      {/* Theme Toggle + Collapse */}
+      <div className="p-4 border-t border-sidebar-border space-y-2">
+        <button
+          onClick={toggleTheme}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+        >
+          {theme === "dark" ? (
+            <Sun className="w-5 h-5" />
+          ) : (
+            <Moon className="w-5 h-5" />
+          )}
+          {!collapsed && (
+            <span className="font-medium">
+              {theme === "dark" ? "Light Mode" : "Dark Mode"}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+        >
+          {collapsed ? (
+            <ChevronRight className="w-5 h-5" />
+          ) : (
+            <ChevronLeft className="w-5 h-5" />
+          )}
+          {!collapsed && <span className="font-medium">Collapse</span>}
+        </button>
+      </div>
+
+      {/* User */}
+      <div className="p-4 border-t border-sidebar-border">
+        <div
+          className={cn(
+            "flex items-center gap-3",
+            collapsed && "justify-center"
+          )}
+        >
+          <div className="w-10 h-10 rounded-full bg-surface-elevated border border-border flex items-center justify-center shrink-0">
+            <span className="text-sm font-medium text-foreground">
+              {admin?.name ? getInitials(admin.name) : "SA"}
+            </span>
+          </div>
+          {!collapsed && (
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-sm font-medium text-foreground truncate">
+                {admin?.name || "Super Admin"}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {admin?.email || "admin@realmeta.ca"}
+              </p>
+            </div>
+          )}
+          {!collapsed && (
+            <button
+              onClick={handleLogout}
+              title="Logout"
+              className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        {collapsed && (
+          <button
+            onClick={handleLogout}
+            title="Logout"
+            className="w-full mt-2 p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </motion.aside>
+  );
+};
