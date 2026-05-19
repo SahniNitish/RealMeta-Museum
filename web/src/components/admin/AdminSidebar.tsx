@@ -10,10 +10,13 @@ import {
   BarChart3,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Sun,
+  Moon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface NavItem {
   icon: React.ElementType;
@@ -35,6 +38,7 @@ export const AdminSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { admin, museum, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const isActive = (path: string) => {
     if (path === "/admin") {
@@ -119,8 +123,15 @@ export const AdminSidebar = () => {
         ))}
       </nav>
 
-      {/* Collapse Toggle */}
-      <div className="p-4 border-t border-sidebar-border">
+      {/* Theme Toggle + Collapse */}
+      <div className="p-4 border-t border-sidebar-border space-y-2">
+        <button
+          onClick={toggleTheme}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+        >
+          {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          {!collapsed && <span className="font-medium">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+        </button>
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
