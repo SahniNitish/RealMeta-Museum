@@ -28,9 +28,9 @@ export default function SplashScreen() {
           initial={{ opacity: 0, scale: 0.7 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="w-24 h-24 rounded-3xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow-lg"
+          className="flex items-center justify-center"
         >
-          <span className="text-primary-foreground font-display font-bold text-5xl">R</span>
+          <img src="/realmeta-logo-full.png" alt="RealMeta" className="w-72 h-auto" />
         </motion.div>
 
         <motion.div
@@ -39,7 +39,6 @@ export default function SplashScreen() {
           transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
           className="text-center"
         >
-          <h1 className="font-display text-4xl text-foreground mb-2">RealMeta</h1>
           <p className="text-muted-foreground">AI-Powered Museum Guide</p>
         </motion.div>
 

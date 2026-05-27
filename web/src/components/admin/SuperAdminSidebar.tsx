@@ -10,7 +10,6 @@ import {
   ChevronRight,
   Sun,
   Moon,
-  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -69,8 +68,8 @@ export const SuperAdminSidebar = () => {
           className="flex items-center gap-3"
           animate={{ justifyContent: collapsed ? "center" : "flex-start" }}
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
-            <Shield className="w-5 h-5 text-primary-foreground" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shrink-0">
+            <img src="/realmeta-symbol.png" alt="RealMeta" className="w-full h-full object-contain" />
           </div>
           {!collapsed && (
             <motion.div

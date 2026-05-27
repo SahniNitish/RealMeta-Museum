@@ -113,9 +113,9 @@ export default function AdminRegister() {
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4"
+            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden mb-4"
           >
-            <span className="text-3xl">🏛️</span>
+            <img src="/realmeta-symbol.png" alt="RealMeta" className="w-full h-full object-contain" />
           </motion.div>
           <h1 className="font-display text-3xl text-foreground mb-2">
             {step === 3 ? 'Registration Complete!' : 'Register Your Museum'}

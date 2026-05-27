@@ -75,8 +75,8 @@ export const AdminSidebar = () => {
           className="flex items-center gap-3"
           animate={{ justifyContent: collapsed ? "center" : "flex-start" }}
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
-            <span className="text-primary-foreground font-display font-bold text-lg">R</span>
+          <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shrink-0">
+            <img src="/realmeta-symbol.png" alt="RealMeta" className="w-full h-full object-contain" />
           </div>
           {!collapsed && (
             <motion.div
