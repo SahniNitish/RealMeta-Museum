@@ -1,10 +1,21 @@
 import Stripe from 'stripe';
 import Logger from '../utils/logger';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
+let _stripe: InstanceType<typeof Stripe> | null = null;
+
+function getStripe(): InstanceType<typeof Stripe> {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error('STRIPE_SECRET_KEY is not configured');
+    }
+    _stripe = new Stripe(key);
+  }
+  return _stripe;
+}
 
 export async function createStripeCustomer(email: string, museumName: string): Promise<string> {
-  const customer = await stripe.customers.create({
+  const customer = await getStripe().customers.create({
     email,
     name: museumName,
     metadata: { source: 'realmeta-museum' },
@@ -20,7 +31,7 @@ export async function createCheckoutSession(
   successUrl: string,
   cancelUrl: string
 ): Promise<string> {
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
     payment_method_types: ['card'],
@@ -36,7 +47,7 @@ export async function createCheckoutSession(
 }
 
 export async function createPortalSession(customerId: string, returnUrl: string): Promise<string> {
-  const session = await stripe.billingPortal.sessions.create({
+  const session = await getStripe().billingPortal.sessions.create({
     customer: customerId,
     return_url: returnUrl,
   });
@@ -45,12 +56,12 @@ export async function createPortalSession(customerId: string, returnUrl: string)
 
 export async function createCustomPrice(amount: number, museumName: string): Promise<string> {
   // Create a product for this custom plan
-  const product = await stripe.products.create({
+  const product = await getStripe().products.create({
     name: `RealMeta Custom - ${museumName}`,
     metadata: { type: 'custom' },
   });
 
-  const price = await stripe.prices.create({
+  const price = await getStripe().prices.create({
     product: product.id,
     unit_amount: Math.round(amount * 100), // Convert to cents
     currency: 'usd',
@@ -62,18 +73,18 @@ export async function createCustomPrice(amount: number, museumName: string): Pro
 }
 
 export async function cancelSubscription(subscriptionId: string): Promise<void> {
-  await stripe.subscriptions.update(subscriptionId, {
+  await getStripe().subscriptions.update(subscriptionId, {
     cancel_at_period_end: true,
   });
   Logger.info(`Subscription ${subscriptionId} set to cancel at period end`);
 }
 
 export function constructWebhookEvent(payload: Buffer, signature: string) {
-  return stripe.webhooks.constructEvent(
+  return getStripe().webhooks.constructEvent(
     payload,
     signature,
     process.env.STRIPE_WEBHOOK_SECRET || ''
   );
 }
 
-export { stripe };
+export { getStripe as stripe };
