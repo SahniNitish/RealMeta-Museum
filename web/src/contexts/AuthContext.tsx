@@ -11,12 +11,24 @@ interface Admin {
   isVerified: boolean;
 }
 
+interface Subscription {
+  plan: 'free' | 'starter' | 'professional' | 'custom';
+  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'deactivated';
+  artworkLimit: number;
+  trialStartDate?: string;
+  trialEndDate?: string;
+  cancelAtPeriodEnd?: boolean;
+  customPrice?: number;
+}
+
 interface Museum {
   id: string;
   name: string;
   location: string;
   qrCode: string;
   qrCodeUrl?: string;
+  subscription?: Subscription;
+  isActive?: boolean;
 }
 
 interface AuthContextType {
@@ -29,6 +41,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<{ qrCodeUrl: string }>;
   logout: () => void;
   resendVerification: () => Promise<void>;
+  refreshSubscription: () => Promise<void>;
 }
 
 interface RegisterData {
@@ -125,6 +138,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
+  const refreshSubscription = async () => {
+    const storedToken = localStorage.getItem('token');
+    if (!storedToken) return;
+    try {
+      const response = await axios.get(`${API_BASE}/billing/subscription`, {
+        headers: { Authorization: `Bearer ${storedToken}` }
+      });
+      setMuseum(prev => prev ? {
+        ...prev,
+        subscription: {
+          plan: response.data.plan,
+          status: response.data.status,
+          artworkLimit: response.data.artworkLimit,
+          trialStartDate: response.data.trialStartDate,
+          trialEndDate: response.data.trialEndDate,
+          cancelAtPeriodEnd: response.data.cancelAtPeriodEnd,
+          customPrice: response.data.customPrice,
+        },
+        isActive: response.data.isActive,
+      } : null);
+    } catch {
+      // Silently fail — subscription data is supplementary
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -136,7 +174,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         register,
         logout,
-        resendVerification
+        resendVerification,
+        refreshSubscription
       }}
     >
       {children}

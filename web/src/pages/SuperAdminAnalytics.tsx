@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Eye, CalendarDays, TrendingUp, Globe, Loader2, AlertCircle, Building2 } from 'lucide-react';
+import { Eye, CalendarDays, TrendingUp, Globe, Loader2, AlertCircle, Building2, CreditCard } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,16 +27,23 @@ interface Analytics {
 export default function SuperAdminAnalytics() {
   const { token } = useAuth();
   const [data, setData] = useState<Analytics | null>(null);
+  const [subStats, setSubStats] = useState<{
+    planDistribution: Record<string, number>;
+    totalMuseums: number;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchAll = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/superadmin/analytics`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setData(res.data);
+        const headers = { Authorization: `Bearer ${token}` };
+        const [analyticsRes, subStatsRes] = await Promise.all([
+          axios.get(`${API_BASE}/superadmin/analytics`, { headers }),
+          axios.get(`${API_BASE}/superadmin/subscription-stats`, { headers }),
+        ]);
+        setData(analyticsRes.data);
+        setSubStats(subStatsRes.data);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load analytics';
         setError((err as any)?.response?.data?.error || message);
@@ -44,7 +51,7 @@ export default function SuperAdminAnalytics() {
         setIsLoading(false);
       }
     };
-    fetch();
+    fetchAll();
   }, [token]);
 
   // Find max for bar chart scaling
@@ -121,6 +128,43 @@ export default function SuperAdminAnalytics() {
                   })}
                 </div>
               </div>
+
+              {/* Subscription Overview */}
+              {subStats && subStats.totalMuseums > 0 && (
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-card mb-8">
+                  <h2 className="font-display text-lg text-foreground mb-4 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-primary" />
+                    Subscription Overview
+                  </h2>
+                  <div className="space-y-3">
+                    {Object.entries(subStats.planDistribution).map(([plan, count]) => {
+                      const pct = Math.round((count / subStats.totalMuseums) * 100);
+                      const colors: Record<string, string> = {
+                        free: 'bg-muted-foreground',
+                        starter: 'bg-blue-500',
+                        professional: 'bg-amber-500',
+                        custom: 'bg-purple-500',
+                      };
+                      return (
+                        <div key={plan}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-foreground capitalize">{plan}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {count} ({pct}%)
+                            </span>
+                          </div>
+                          <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${colors[plan] || 'bg-primary'}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Top Museums */}

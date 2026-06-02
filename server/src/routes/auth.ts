@@ -61,13 +61,19 @@ router.post('/register', async (req: Request, res: Response) => {
     // Generate unique QR code slug for museum
     const qrCode = `museum_${crypto.randomBytes(8).toString('hex')}`;
 
-    // Create museum
+    // Create museum with free plan defaults
     const museum = await Museum.create({
       name: museumName,
       location: museumLocation,
       description: museumDescription,
       website: museumWebsite,
-      qrCode
+      qrCode,
+      isActive: true,
+      subscription: {
+        plan: 'free',
+        status: 'active',
+        artworkLimit: 5,
+      },
     });
 
     // Generate QR code image (encodes visitor URL)
@@ -123,7 +129,9 @@ router.post('/register', async (req: Request, res: Response) => {
         name: museum.name,
         location: museum.location,
         qrCode: museum.qrCode,
-        qrCodeUrl
+        qrCodeUrl,
+        subscription: museum.subscription,
+        isActive: museum.isActive,
       }
     });
 
@@ -187,7 +195,9 @@ router.post('/login', async (req: Request, res: Response) => {
         id: museum._id,
         name: museum.name,
         location: museum.location,
-        qrCode: museum.qrCode
+        qrCode: museum.qrCode,
+        subscription: museum.subscription,
+        isActive: museum.isActive,
       }
     });
 
@@ -237,7 +247,9 @@ router.get('/me', async (req: Request, res: Response) => {
           id: museum._id,
           name: museum.name,
           location: museum.location,
-          qrCode: museum.qrCode
+          qrCode: museum.qrCode,
+          subscription: museum.subscription,
+          isActive: museum.isActive,
         } : null
       });
 

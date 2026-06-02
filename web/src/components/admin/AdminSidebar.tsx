@@ -8,6 +8,7 @@ import {
   Settings,
   QrCode,
   BarChart3,
+  CreditCard,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -30,6 +31,7 @@ const navItems: NavItem[] = [
   { icon: Images, label: "Collection", path: "/admin/collection" },
   { icon: QrCode, label: "QR Codes", path: "/admin/qr-codes" },
   { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
+  { icon: CreditCard, label: "Billing", path: "/admin/billing" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];
 

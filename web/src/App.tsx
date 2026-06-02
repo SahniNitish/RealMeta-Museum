@@ -10,6 +10,7 @@ import AdminCollection from './pages/AdminCollection'
 import AdminQRCodes from './pages/AdminQRCodes'
 import AdminAnalytics from './pages/AdminAnalytics'
 import AdminSettings from './pages/AdminSettings'
+import AdminBilling from './pages/AdminBilling'
 import AdminProfile from './pages/AdminProfile'
 import AdminLogin from './pages/AdminLogin'
 import AdminRegister from './pages/AdminRegister'
@@ -84,6 +85,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AdminAnalytics />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/billing"
+              element={
+                <ProtectedRoute>
+                  <AdminBilling />
                 </ProtectedRoute>
               }
             />

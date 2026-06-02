@@ -12,12 +12,14 @@ import { translateDescription } from '../services/translation';
 import { generateImageEmbedding } from '../services/clip';
 import { uploadToS3, generateS3Key, deleteFromS3, extractS3KeyFromUrl, isS3Url } from '../services/s3';
 import { authenticateAdmin } from './auth';
+import { checkSubscriptionActive, checkArtworkLimit } from '../middleware/subscription';
 import Logger from '../utils/logger';
 
 const router = Router();
 
-// All admin routes require authentication
+// All admin routes require authentication + active subscription
 router.use(authenticateAdmin);
+router.use(checkSubscriptionActive);
 
 // Temporary storage for processing before S3 upload
 const storage = multer.diskStorage({
@@ -140,7 +142,7 @@ function extractVimeoId(url: string): string | null {
 
 // Upload an image and create a draft artwork record
 // OPTIMIZED: Run CLIP, AI, and Wikipedia in parallel. Translation/Audio deferred to finalize.
-router.post('/upload', upload.single('image'), async (req: Request, res: Response) => {
+router.post('/upload', checkArtworkLimit, upload.single('image'), async (req: Request, res: Response) => {
   let tempFilePath: string | null = null;
 
   try {

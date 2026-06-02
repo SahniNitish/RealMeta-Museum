@@ -7,7 +7,7 @@ import { AnalyzingOverlay } from "@/components/admin/AnalyzingOverlay";
 import { SavingOverlay } from "@/components/admin/SavingOverlay";
 import { ArtworkInfoCard } from "@/components/admin/ArtworkInfoCard";
 import { Button } from "@/components/ui/button";
-import { Sparkles, RotateCcw, AlertCircle, X, Check, Image, Video, Music, FileText, Upload, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, RotateCcw, AlertCircle, X, Check, Image, Video, Music, FileText, Upload, Trash2, ChevronDown, ChevronUp, CreditCard, ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { API_HOST, API_BASE, getMediaUrl } from "@/lib/api";
 
@@ -49,8 +49,28 @@ export default function AdminUpload() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Billing state
+  const [billingInfo, setBillingInfo] = useState<{
+    artworkCount: number;
+    artworkLimit: number;
+    plan: string;
+  } | null>(null);
+
+  // Fetch billing info on mount
+  useState(() => {
+    if (token) {
+      axios
+        .get(`${API_BASE}/billing/subscription`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .then((res) => setBillingInfo(res.data))
+        .catch(() => {});
+    }
+  });
+
   // Museum is ready when we have the auth context with museum ID
   const museumReady = !!museum?.id;
+  const atLimit = billingInfo ? billingInfo.artworkCount >= billingInfo.artworkLimit : false;
 
   const handleImageUpload = (file: File, preview: string) => {
     setUploadedImage(preview);
@@ -144,8 +164,16 @@ export default function AdminUpload() {
     } catch (err: any) {
       clearInterval(stepInterval);
       setIsAnalyzing(false);
-      const errorMsg = err.response?.data?.error || err.message || "Upload failed";
-      setError(errorMsg);
+      if (err.response?.data?.upgradeRequired) {
+        setError(`Artwork limit reached (${err.response.data.currentCount}/${err.response.data.limit}). Please upgrade your plan.`);
+        // Refresh billing info to show limit
+        axios.get(`${API_BASE}/billing/subscription`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then((res) => setBillingInfo(res.data)).catch(() => {});
+      } else {
+        const errorMsg = err.response?.data?.error || err.message || "Upload failed";
+        setError(errorMsg);
+      }
       console.error("Upload error:", err);
     }
   };
@@ -470,8 +498,60 @@ export default function AdminUpload() {
             </motion.div>
           )}
 
+          {/* Artwork Usage Bar */}
+          {billingInfo && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="max-w-3xl mx-auto mb-6 p-4 rounded-xl bg-card border border-border"
+            >
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  Artwork Usage
+                </span>
+                <span className="font-medium">
+                  {billingInfo.artworkCount} / {billingInfo.artworkLimit}
+                </span>
+              </div>
+              <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    atLimit ? 'bg-destructive' : billingInfo.artworkCount >= billingInfo.artworkLimit * 0.8 ? 'bg-amber-500' : 'bg-primary'
+                  }`}
+                  style={{ width: `${Math.min((billingInfo.artworkCount / billingInfo.artworkLimit) * 100, 100)}%` }}
+                />
+              </div>
+            </motion.div>
+          )}
+
           <AnimatePresence mode="wait">
-            {!analysisComplete ? (
+            {atLimit ? (
+              <motion.div
+                key="limit-reached"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="max-w-3xl mx-auto"
+              >
+                <div className="p-8 rounded-2xl bg-card border-2 border-destructive/30 text-center">
+                  <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="w-8 h-8 text-destructive" />
+                  </div>
+                  <h3 className="font-display text-xl text-foreground mb-2">Artwork Limit Reached</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Your <span className="capitalize font-medium">{billingInfo?.plan}</span> plan allows up to{' '}
+                    {billingInfo?.artworkLimit} artworks. Upgrade your plan to upload more.
+                  </p>
+                  <button
+                    onClick={() => window.location.href = '/admin/billing'}
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
+                  >
+                    Upgrade Plan
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </motion.div>
+            ) : !analysisComplete ? (
               <motion.div
                 key="upload"
                 initial={{ opacity: 0, y: 20 }}

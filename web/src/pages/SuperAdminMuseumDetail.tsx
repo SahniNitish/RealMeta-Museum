@@ -27,6 +27,10 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
+  Shield,
+  ShieldOff,
+  Clock,
+  CreditCard,
 } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE, getMediaUrl } from '@/lib/api';
@@ -65,6 +69,13 @@ interface MuseumInfo {
   _id: string;
   name: string;
   location: string;
+  subscription?: {
+    plan: string;
+    status: string;
+    artworkLimit: number;
+    trialEndDate?: string;
+  };
+  isActive?: boolean;
 }
 
 const languages = [
@@ -103,6 +114,10 @@ export default function SuperAdminMuseumDetail() {
   });
   const [newLink, setNewLink] = useState({ label: '', url: '' });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Subscription management state
+  const [actionLoading, setActionLoading] = useState(false);
+  const [planDropdownOpen, setPlanDropdownOpen] = useState(false);
 
   // Media upload state
   const [mediaExpanded, setMediaExpanded] = useState(false);
@@ -416,6 +431,60 @@ export default function SuperAdminMuseumDetail() {
     }
   };
 
+  // --- Subscription management ---
+  const handleToggleActive = async () => {
+    if (!museum) return;
+    setActionLoading(true);
+    try {
+      const endpoint = museum.isActive !== false ? 'deactivate' : 'activate';
+      await axios.post(`${API_BASE}/superadmin/museums/${id}/${endpoint}`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMuseum({ ...museum, isActive: museum.isActive === false });
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to update museum');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSetTrial = async () => {
+    setActionLoading(true);
+    try {
+      const res = await axios.post(`${API_BASE}/superadmin/museums/${id}/set-trial`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMuseum(prev => prev ? { ...prev, isActive: true, subscription: res.data.subscription } : null);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to set trial');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSetPlan = async (plan: string) => {
+    setActionLoading(true);
+    setPlanDropdownOpen(false);
+    try {
+      const body: any = { plan };
+      if (plan === 'custom') {
+        const limitStr = prompt('Enter artwork limit:');
+        const priceStr = prompt('Enter monthly price ($):');
+        if (!limitStr || !priceStr) { setActionLoading(false); return; }
+        body.artworkLimit = parseInt(limitStr);
+        body.customPrice = parseFloat(priceStr);
+      }
+      const res = await axios.post(`${API_BASE}/superadmin/museums/${id}/set-plan`, body, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMuseum(prev => prev ? { ...prev, subscription: res.data.subscription } : null);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to set plan');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // --- Filtered artworks ---
   const filteredArtworks = artworks.filter(
     (artwork) =>
@@ -461,6 +530,86 @@ export default function SuperAdminMuseumDetail() {
                     >
                       {museum.location} &middot; {artworks.length} artwork{artworks.length !== 1 ? 's' : ''}
                     </motion.p>
+
+                    {/* Subscription Info Panel */}
+                    {museum.subscription && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className="mt-3 flex flex-wrap items-center gap-3"
+                      >
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
+                          museum.isActive === false
+                            ? 'bg-red-500/10 text-red-500 border-red-500/20'
+                            : museum.subscription.status === 'trialing'
+                            ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                            : museum.subscription.plan === 'free'
+                            ? 'bg-muted text-muted-foreground border-border'
+                            : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                        }`}>
+                          <CreditCard className="w-3 h-3 inline mr-1" />
+                          {museum.isActive === false ? 'Deactivated' : museum.subscription.plan.toUpperCase()}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {artworks.length}/{museum.subscription.artworkLimit} artworks used
+                        </span>
+                        {museum.subscription.status === 'trialing' && museum.subscription.trialEndDate && (
+                          <span className="text-xs text-blue-500">
+                            Trial ends {new Date(museum.subscription.trialEndDate).toLocaleDateString()}
+                          </span>
+                        )}
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-2 ml-2">
+                          <button
+                            onClick={handleToggleActive}
+                            disabled={actionLoading}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                              museum.isActive !== false
+                                ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
+                                : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
+                            }`}
+                          >
+                            {museum.isActive !== false ? <ShieldOff className="w-3 h-3" /> : <Shield className="w-3 h-3" />}
+                            {museum.isActive !== false ? 'Deactivate' : 'Activate'}
+                          </button>
+                          {museum.subscription.status !== 'trialing' && (
+                            <button
+                              onClick={handleSetTrial}
+                              disabled={actionLoading}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors"
+                            >
+                              <Clock className="w-3 h-3" />
+                              Set Trial
+                            </button>
+                          )}
+                          <div className="relative">
+                            <button
+                              onClick={() => setPlanDropdownOpen(!planDropdownOpen)}
+                              disabled={actionLoading}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                            >
+                              Change Plan
+                              <ChevronDown className="w-3 h-3" />
+                            </button>
+                            {planDropdownOpen && (
+                              <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 min-w-[140px]">
+                                {['free', 'starter', 'professional', 'custom'].map((p) => (
+                                  <button
+                                    key={p}
+                                    onClick={() => handleSetPlan(p)}
+                                    className="w-full px-3 py-2 text-left text-xs hover:bg-muted transition-colors capitalize first:rounded-t-lg last:rounded-b-lg"
+                                  >
+                                    {p}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                   </>
                 ) : (
                   <div className="h-14" />

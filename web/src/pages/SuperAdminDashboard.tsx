@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Building2, Image, Users, Eye, Loader2, AlertCircle } from 'lucide-react';
+import { Building2, Image, Users, Eye, Loader2, AlertCircle, CreditCard, Clock } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +12,12 @@ interface Stats {
   totalArtworks: number;
   totalAdmins: number;
   totalVisitors: number;
+}
+
+interface SubStats {
+  paidMuseums: number;
+  activeTrials: number;
+  planDistribution: Record<string, number>;
 }
 
 interface MuseumItem {
@@ -27,6 +33,7 @@ export default function SuperAdminDashboard() {
   const { token } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<Stats | null>(null);
+  const [subStats, setSubStats] = useState<SubStats | null>(null);
   const [recentMuseums, setRecentMuseums] = useState<MuseumItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,12 +42,14 @@ export default function SuperAdminDashboard() {
     const fetchData = async () => {
       try {
         const headers = { Authorization: `Bearer ${token}` };
-        const [statsRes, museumsRes] = await Promise.all([
+        const [statsRes, museumsRes, subStatsRes] = await Promise.all([
           axios.get(`${API_BASE}/superadmin/stats`, { headers }),
           axios.get(`${API_BASE}/superadmin/museums`, { headers }),
+          axios.get(`${API_BASE}/superadmin/subscription-stats`, { headers }),
         ]);
         setStats(statsRes.data);
         setRecentMuseums(museumsRes.data.slice(0, 5));
+        setSubStats(subStatsRes.data);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load data';
         setError((err as any)?.response?.data?.error || message);
@@ -103,6 +112,36 @@ export default function SuperAdminDashboard() {
                   </motion.div>
                 ))}
               </div>
+
+              {/* Subscription Stats */}
+              {subStats && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="bg-card border border-border rounded-2xl p-6 shadow-card"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <CreditCard className="w-8 h-8 text-emerald-500" />
+                    </div>
+                    <p className="text-3xl font-bold text-foreground">{subStats.paidMuseums}</p>
+                    <p className="text-sm text-muted-foreground mt-1">Paid Museums</p>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 }}
+                    className="bg-card border border-border rounded-2xl p-6 shadow-card"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <Clock className="w-8 h-8 text-blue-500" />
+                    </div>
+                    <p className="text-3xl font-bold text-foreground">{subStats.activeTrials}</p>
+                    <p className="text-sm text-muted-foreground mt-1">Active Trials</p>
+                  </motion.div>
+                </div>
+              )}
 
               {/* Recent Museums */}
               <div className="bg-card border border-border rounded-2xl shadow-card">

@@ -4,6 +4,8 @@ import { Admin } from '../models/Admin';
 import { Museum } from '../models/Museum';
 import { Artwork } from '../models/Artwork';
 import { Visitor } from '../models/Visitor';
+import { PLANS, PlanType, TRIAL_DURATION_DAYS } from '../config/plans';
+import { createCustomPrice } from '../services/stripe';
 import Logger from '../utils/logger';
 import { authenticateAdmin } from './auth';
 
@@ -46,7 +48,7 @@ router.get('/stats', async (_req: Request, res: Response) => {
   }
 });
 
-// GET /api/superadmin/museums — all museums with admin info + artwork counts
+// GET /api/superadmin/museums — all museums with admin info + artwork counts + subscription
 router.get('/museums', async (_req: Request, res: Response) => {
   try {
     await connectToDatabase();
@@ -69,6 +71,8 @@ router.get('/museums', async (_req: Request, res: Response) => {
           website: museum.website,
           description: museum.description,
           createdAt: museum.createdAt,
+          subscription: museum.subscription || { plan: 'free', status: 'active', artworkLimit: 5 },
+          isActive: museum.isActive !== false,
           admin: admin
             ? {
                 name: admin.name,
@@ -111,12 +115,167 @@ router.get('/museums/:id/artworks', async (req: Request, res: Response) => {
         _id: museum._id,
         name: museum.name,
         location: museum.location,
+        subscription: museum.subscription,
+        isActive: museum.isActive,
       },
       artworks,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     Logger.error(`Superadmin museum artworks error: ${message}`);
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /api/superadmin/museums/:id/activate — activate a museum
+router.post('/museums/:id/activate', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+    const museum = await Museum.findByIdAndUpdate(
+      req.params.id,
+      { isActive: true },
+      { new: true }
+    );
+    if (!museum) return res.status(404).json({ error: 'Museum not found' });
+    Logger.info(`Museum ${req.params.id} activated by superadmin`);
+    res.json({ success: true, isActive: museum.isActive });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /api/superadmin/museums/:id/deactivate — deactivate a museum
+router.post('/museums/:id/deactivate', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+    const museum = await Museum.findByIdAndUpdate(
+      req.params.id,
+      { isActive: false },
+      { new: true }
+    );
+    if (!museum) return res.status(404).json({ error: 'Museum not found' });
+    Logger.info(`Museum ${req.params.id} deactivated by superadmin`);
+    res.json({ success: true, isActive: museum.isActive });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /api/superadmin/museums/:id/set-trial — start 30-day trial
+router.post('/museums/:id/set-trial', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+    const now = new Date();
+    const trialEnd = new Date(now.getTime() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000);
+
+    const museum = await Museum.findByIdAndUpdate(
+      req.params.id,
+      {
+        isActive: true,
+        'subscription.plan': 'starter',
+        'subscription.status': 'trialing',
+        'subscription.artworkLimit': PLANS.starter.artworkLimit,
+        'subscription.trialStartDate': now,
+        'subscription.trialEndDate': trialEnd,
+      },
+      { new: true }
+    );
+    if (!museum) return res.status(404).json({ error: 'Museum not found' });
+    Logger.info(`Museum ${req.params.id} set to trial by superadmin (ends ${trialEnd.toISOString()})`);
+    res.json({ success: true, subscription: museum.subscription });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /api/superadmin/museums/:id/set-plan — change plan
+router.post('/museums/:id/set-plan', async (req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+    const { plan, artworkLimit, customPrice } = req.body as {
+      plan: PlanType;
+      artworkLimit?: number;
+      customPrice?: number;
+    };
+
+    if (!plan || !['free', 'starter', 'professional', 'custom'].includes(plan)) {
+      return res.status(400).json({ error: 'Invalid plan' });
+    }
+
+    const update: any = {
+      'subscription.plan': plan,
+      'subscription.status': 'active',
+    };
+
+    if (plan === 'custom') {
+      if (!artworkLimit || artworkLimit < 1) {
+        return res.status(400).json({ error: 'Custom plan requires artworkLimit > 0' });
+      }
+      update['subscription.artworkLimit'] = artworkLimit;
+
+      if (customPrice && customPrice > 0) {
+        const museum = await Museum.findById(req.params.id);
+        if (!museum) return res.status(404).json({ error: 'Museum not found' });
+
+        // Create a Stripe price for this custom plan
+        const stripePriceId = await createCustomPrice(customPrice, museum.name);
+        update['subscription.stripePriceId'] = stripePriceId;
+        update['subscription.customPrice'] = customPrice;
+      }
+    } else {
+      update['subscription.artworkLimit'] = PLANS[plan].artworkLimit;
+    }
+
+    const museum = await Museum.findByIdAndUpdate(req.params.id, update, { new: true });
+    if (!museum) return res.status(404).json({ error: 'Museum not found' });
+
+    Logger.info(`Museum ${req.params.id} set to ${plan} plan by superadmin`);
+    res.json({ success: true, subscription: museum.subscription });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    Logger.error(`Set plan error: ${message}`);
+    res.status(500).json({ error: message });
+  }
+});
+
+// GET /api/superadmin/subscription-stats — plan distribution stats
+router.get('/subscription-stats', async (_req: Request, res: Response) => {
+  try {
+    await connectToDatabase();
+
+    const museums = await Museum.find().lean();
+
+    const planDistribution: Record<string, number> = { free: 0, starter: 0, professional: 0, custom: 0 };
+    const statusDistribution: Record<string, number> = { active: 0, trialing: 0, past_due: 0, canceled: 0, deactivated: 0 };
+    let activeTrials = 0;
+    let paidMuseums = 0;
+
+    for (const m of museums) {
+      const plan = m.subscription?.plan || 'free';
+      const status = m.subscription?.status || 'active';
+
+      planDistribution[plan] = (planDistribution[plan] || 0) + 1;
+      statusDistribution[status] = (statusDistribution[status] || 0) + 1;
+
+      if (status === 'trialing') activeTrials++;
+      if (['starter', 'professional', 'custom'].includes(plan) && ['active', 'trialing'].includes(status)) {
+        paidMuseums++;
+      }
+    }
+
+    res.json({
+      planDistribution,
+      statusDistribution,
+      activeTrials,
+      paidMuseums,
+      totalMuseums: museums.length,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    Logger.error(`Subscription stats error: ${message}`);
     res.status(500).json({ error: message });
   }
 });

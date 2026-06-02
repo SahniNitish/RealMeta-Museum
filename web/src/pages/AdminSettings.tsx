@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import {
@@ -10,9 +11,14 @@ import {
   User,
   KeyRound,
   Monitor,
+  CreditCard,
+  ArrowRight,
+  ExternalLink,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
+import axios from "axios";
+import { API_BASE } from "@/lib/api";
 
 const UI_LANGUAGES = [
   { code: "en", name: "English" },
@@ -41,7 +47,43 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 
 export default function AdminSettings() {
   const { theme, toggleTheme } = useTheme();
-  const { admin, museum } = useAuth();
+  const { admin, museum, token } = useAuth();
+  const navigate = useNavigate();
+  const [billingInfo, setBillingInfo] = useState<{
+    plan: string;
+    artworkCount: number;
+    artworkLimit: number;
+    status: string;
+    trialEndDate: string | null;
+    cancelAtPeriodEnd: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchBilling = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/billing/subscription`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setBillingInfo(res.data);
+      } catch {
+        // silently fail
+      }
+    };
+    if (token) fetchBilling();
+  }, [token]);
+
+  const handleManageBilling = async () => {
+    try {
+      const res = await axios.post(
+        `${API_BASE}/billing/create-portal-session`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.data.url) window.location.href = res.data.url;
+    } catch {
+      // silently fail
+    }
+  };
 
   const [uiLanguage, setUiLanguage] = useState(
     () => localStorage.getItem("ui_language") || "en"
@@ -206,11 +248,93 @@ export default function AdminSettings() {
             </p>
           </motion.section>
 
-          {/* Account */}
+          {/* Billing & Plan */}
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
+            className="p-6 rounded-2xl bg-card border border-border space-y-5"
+          >
+            <h2 className="font-display text-xl text-foreground flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-primary" />
+              Billing & Plan
+            </h2>
+
+            {billingInfo ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Current Plan</p>
+                    <p className="text-xs text-muted-foreground capitalize">
+                      {billingInfo.plan}
+                      {billingInfo.status === "trialing" && billingInfo.trialEndDate && (
+                        <span className="ml-1 text-blue-500">
+                          (Trial ends {new Date(billingInfo.trialEndDate).toLocaleDateString()})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary capitalize">
+                    {billingInfo.plan}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Artwork Usage</span>
+                    <span className="font-medium">{billingInfo.artworkCount} / {billingInfo.artworkLimit}</span>
+                  </div>
+                  <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        billingInfo.artworkCount >= billingInfo.artworkLimit
+                          ? "bg-destructive"
+                          : billingInfo.artworkCount >= billingInfo.artworkLimit * 0.8
+                          ? "bg-amber-500"
+                          : "bg-primary"
+                      }`}
+                      style={{
+                        width: `${Math.min((billingInfo.artworkCount / billingInfo.artworkLimit) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {billingInfo.cancelAtPeriodEnd && (
+                  <p className="text-xs text-amber-500 bg-amber-500/10 px-3 py-2 rounded-lg">
+                    Your subscription will be canceled at the end of the current billing period.
+                  </p>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => navigate("/admin/billing")}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                  >
+                    Upgrade Plan
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                  {billingInfo.plan !== "free" && (
+                    <button
+                      onClick={handleManageBilling}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted/30 border border-border text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Manage Billing
+                    </button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Loading billing information...</p>
+            )}
+          </motion.section>
+
+          {/* Account */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
             className="p-6 rounded-2xl bg-card border border-border space-y-5"
           >
             <h2 className="font-display text-xl text-foreground flex items-center gap-2">

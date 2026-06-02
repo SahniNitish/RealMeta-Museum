@@ -8,6 +8,7 @@ import museumsRouter from './routes/museums';
 import visitorRouter from './routes/visitor';
 import authRouter from './routes/auth';
 import superadminRouter from './routes/superadmin';
+import billingRouter from './routes/billing';
 import { connectToDatabase } from './utils/db';
 import Logger from './utils/logger';
 
@@ -39,6 +40,9 @@ app.use(cors({
   credentials: true
 }));
 
+// Stripe webhook needs raw body — mount BEFORE express.json()
+app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json({ limit: '2mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
@@ -50,6 +54,7 @@ app.use((req, res, next) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/billing', billingRouter);
 app.use('/api/superadmin', superadminRouter);
 app.use('/api/museums', museumsRouter);
 app.use('/api/visit', visitorRouter);
